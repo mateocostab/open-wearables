@@ -38,18 +38,16 @@ export function DataLifecycleTab() {
   const [archiveDays, setArchiveDays] = useState<string>('90');
   const [deleteEnabled, setDeleteEnabled] = useState(false);
   const [deleteDays, setDeleteDays] = useState<string>('365');
-  const [hasInitialized, setHasInitialized] = useState(false);
 
   useEffect(() => {
-    if (data && !hasInitialized) {
+    if (data) {
       const s = data.settings;
       setArchiveEnabled(s.archive_after_days !== null);
       setArchiveDays(s.archive_after_days?.toString() ?? '90');
       setDeleteEnabled(s.delete_after_days !== null);
       setDeleteDays(s.delete_after_days?.toString() ?? '365');
-      setHasInitialized(true);
     }
-  }, [data, hasInitialized]);
+  }, [data]);
 
   const hasChanges = useMemo(() => {
     if (!data) return false;
@@ -96,6 +94,17 @@ export function DataLifecycleTab() {
       archive_after_days: newArchive,
       delete_after_days: newDelete,
     });
+  };
+
+  const handleRunNow = async () => {
+    if (hasChanges && !validationError) {
+      // Auto-save any pending changes before running
+      await handleSave();
+    }
+    // Only proceed if no validation errors (handleSave would have returned early)
+    if (!validationError) {
+      triggerMutation.mutate();
+    }
   };
 
   if (isLoading) {
@@ -192,9 +201,9 @@ export function DataLifecycleTab() {
         <GrowthProjection
           storage={storage}
           archiveEnabled={archiveEnabled}
-          archiveDays={parseInt(archiveDays) || 90}
+          archiveDays={Number(archiveDays)}
           deleteEnabled={deleteEnabled}
-          deleteDays={parseInt(deleteDays) || 365}
+          deleteDays={Number(deleteDays)}
         />
       )}
 
@@ -322,13 +331,13 @@ export function DataLifecycleTab() {
           </p>
           <Button
             variant="outline"
-            onClick={() => triggerMutation.mutate()}
-            disabled={triggerMutation.isPending}
+            onClick={handleRunNow}
+            disabled={triggerMutation.isPending || updateMutation.isPending}
           >
-            {triggerMutation.isPending ? (
+            {triggerMutation.isPending || updateMutation.isPending ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Running...
+                Processing...
               </>
             ) : (
               <>
@@ -510,6 +519,27 @@ function GrowthProjection({
   deleteEnabled: boolean;
   deleteDays: number;
 }) {
+  const archiveInvalid =
+    archiveEnabled && (!Number.isFinite(archiveDays) || archiveDays <= 0);
+  const deleteInvalid =
+    deleteEnabled && (!Number.isFinite(deleteDays) || deleteDays <= 0);
+
+  if (archiveInvalid || deleteInvalid) {
+    return (
+      <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl overflow-hidden min-h-[200px] flex items-center justify-center">
+        <div className="text-center text-zinc-500">
+          <AlertTriangle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+          <p>Invalid configuration</p>
+          <p className="text-xs mt-1">
+            Please enter valid duration in days ({archiveInvalid && 'Archival'}
+            {archiveInvalid && deleteInvalid && ' & '}
+            {deleteInvalid && 'Retention'})
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const archivalEffective =
     archiveEnabled &&
     archiveDays > 0 &&

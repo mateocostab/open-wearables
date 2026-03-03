@@ -9,10 +9,10 @@ from app.mappings import (
     FKSeriesTypeDefinition,
     PrimaryKey,
     Indexed,
-    date_col,
+    datetime_tz,
     numeric_10_3,
 )
-
+from app.schemas.series_types import AggregationMethod
 
 class DataPointSeriesArchive(BaseDbModel):
     """Daily-aggregated archive of time-series data points.
@@ -27,14 +27,16 @@ class DataPointSeriesArchive(BaseDbModel):
         UniqueConstraint(
             "data_source_id",
             "series_type_definition_id",
-            "date",
-            name="uq_archive_source_type_date",
+            "bucket_start_at",
+            "aggregation_type",
+            name="uq_archive_source_type_start_agg",
         ),
     )
 
     id: Mapped[PrimaryKey[UUID]]
     data_source_id: Mapped[FKDataSource]
     series_type_definition_id: Mapped[FKSeriesTypeDefinition]
-    date: Mapped[Indexed[date_col]]
+    bucket_start_at: Mapped[Indexed[datetime_tz]]
+    aggregation_type: Mapped[AggregationMethod]
     value: Mapped[numeric_10_3]
     sample_count: Mapped[int]

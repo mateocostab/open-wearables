@@ -2,7 +2,7 @@
 
 import time
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from uuid import UUID
 
 from sqlalchemy import Date, case, cast, func, text
@@ -220,7 +220,8 @@ class DataPointSeriesArchiveRepository:
                             "id": _deterministic_uuid(row.data_source_id, row.series_type_definition_id, row.date),
                             "data_source_id": row.data_source_id,
                             "series_type_definition_id": row.series_type_definition_id,
-                            "date": row.date,
+                            "bucket_start_at": datetime.combine(row.date, datetime.min.time(), tzinfo=timezone.utc),
+                            "aggregation_type": method.value,
                             "value": value,
                             "sample_count": row.sample_count,
                         }
@@ -240,7 +241,7 @@ class DataPointSeriesArchiveRepository:
                 chunk = values_list[i : i + ARCHIVE_BATCH_SIZE]
                 stmt = insert(DataPointSeriesArchive).values(chunk)
                 stmt = stmt.on_conflict_do_update(
-                    constraint="uq_archive_source_type_date",
+                    constraint="uq_archive_source_type_start_agg",
                     set_={
                         "value": stmt.excluded.value,
                         "sample_count": stmt.excluded.sample_count,
@@ -270,7 +271,10 @@ class DataPointSeriesArchiveRepository:
         """
         deleted = (
             db.query(DataPointSeriesArchive)
-            .filter(DataPointSeriesArchive.date < cutoff_date)
+            .filter(
+                DataPointSeriesArchive.bucket_start_at
+                < datetime.combine(cutoff_date, datetime.min.time(), tzinfo=timezone.utc)
+            )
             .delete(synchronize_session=False)
         )
         db.commit()
@@ -338,9 +342,22 @@ class DataPointSeriesArchiveRepository:
         distance_id = get_series_type_id(SeriesType.distance_walking_running)
         flights_id = get_series_type_id(SeriesType.flights_climbed)
 
+        # Ensure we filter using UTC datetime range
+        start_ts = start_date
+        if isinstance(start_ts, date) and not isinstance(start_ts, datetime):
+            start_ts = datetime.combine(start_ts, datetime.min.time(), tzinfo=timezone.utc)
+        elif isinstance(start_ts, datetime) and start_ts.tzinfo is None:
+            start_ts = start_ts.replace(tzinfo=timezone.utc)
+
+        end_ts = end_date
+        if isinstance(end_ts, date) and not isinstance(end_ts, datetime):
+            end_ts = datetime.combine(end_ts, datetime.min.time(), tzinfo=timezone.utc)
+        if isinstance(end_ts, datetime) and end_ts.tzinfo is None:
+            end_ts = end_ts.replace(tzinfo=timezone.utc)
+
         results = (
             db.query(
-                DataPointSeriesArchive.date.label("activity_date"),
+                cast(DataPointSeriesArchive.bucket_start_at, Date).label("activity_date"),
                 DataSource.source.label("source"),
                 DataSource.device_model.label("device_model"),
                 func.sum(
@@ -390,12 +407,12 @@ class DataPointSeriesArchiveRepository:
             .join(DataSource, DataPointSeriesArchive.data_source_id == DataSource.id)
             .filter(
                 DataSource.user_id == user_id,
-                DataPointSeriesArchive.date >= start_date.date() if isinstance(start_date, datetime) else start_date,
-                DataPointSeriesArchive.date < end_date.date() if isinstance(end_date, datetime) else end_date,
+                DataPointSeriesArchive.bucket_start_at >= start_ts,
+                DataPointSeriesArchive.bucket_start_at < end_ts,
                 DataPointSeriesArchive.series_type_definition_id.in_(series_type_ids),
             )
             .group_by(
-                DataPointSeriesArchive.date,
+                cast(DataPointSeriesArchive.bucket_start_at, Date),
                 DataSource.source,
                 DataSource.device_model,
             )

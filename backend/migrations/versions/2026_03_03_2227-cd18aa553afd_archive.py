@@ -1,6 +1,6 @@
-"""archive_data_point_series
+"""archive
 
-Revision ID: 8f618017e710
+Revision ID: cd18aa553afd
 Revises: 31c7f45b636f
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "8f618017e710"
+revision: str = "cd18aa553afd"
 down_revision: Union[str, None] = "31c7f45b636f"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -32,13 +32,20 @@ def upgrade() -> None:
         sa.Column("id", sa.UUID(), nullable=False),
         sa.Column("data_source_id", sa.UUID(), nullable=False),
         sa.Column("series_type_definition_id", sa.Integer(), nullable=False),
-        sa.Column("date", sa.Date(), nullable=False),
+        sa.Column("bucket_start_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("aggregation_type", sa.String(length=32), nullable=False),
         sa.Column("value", sa.Numeric(precision=10, scale=3), nullable=False),
         sa.Column("sample_count", sa.Integer(), nullable=False),
         sa.ForeignKeyConstraint(["data_source_id"], ["data_source.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["series_type_definition_id"], ["series_type_definition.id"], ondelete="RESTRICT"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("data_source_id", "series_type_definition_id", "date", name="uq_archive_source_type_date"),
+        sa.UniqueConstraint(
+            "data_source_id",
+            "series_type_definition_id",
+            "bucket_start_at",
+            "aggregation_type",
+            name="uq_archive_source_type_start_agg",
+        ),
     )
     op.drop_index(op.f("idx_data_point_series_source_type_time"), table_name="data_point_series")
     # ### end Alembic commands ###
