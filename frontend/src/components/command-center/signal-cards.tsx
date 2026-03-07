@@ -10,14 +10,12 @@ const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    transition: {
-      staggerChildren: 0.1,
-    },
+    transition: { staggerChildren: 0.08 },
   },
 };
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 12 },
+  hidden: { opacity: 0, y: 8 },
   visible: {
     opacity: 1,
     y: 0,
@@ -30,7 +28,7 @@ export function SignalCards({ signals }: SignalCardsProps) {
 
   return (
     <motion.div
-      className="grid grid-cols-2 lg:grid-cols-4 gap-3"
+      className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-zinc-800/50"
       variants={containerVariants}
       initial="hidden"
       animate="visible"
@@ -39,32 +37,34 @@ export function SignalCards({ signals }: SignalCardsProps) {
         <motion.div
           key={signal.label}
           variants={itemVariants}
-          className="glass-panel p-4"
-          style={{ borderLeft: `4px solid ${signal.color}` }}
+          className="px-4 py-2 first:pl-0 last:pr-0"
         >
-          <p className="text-xs font-medium text-zinc-400 uppercase tracking-wider mb-2">
+          <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">
             {signal.label}
           </p>
 
-          <div className="flex items-baseline gap-1">
+          <div className="flex items-baseline gap-2">
             {signal.value !== null ? (
               <>
                 <NumberTicker
                   value={signal.value}
-                  className="text-2xl font-semibold text-white"
+                  className="text-2xl font-bold"
+                  style={{ color: signal.color }}
                   decimalPlaces={signal.unit === 'hrs' ? 1 : 0}
                 />
-                <span className="text-sm text-zinc-500">{signal.unit}</span>
+                <span className="text-sm font-medium" style={{ color: signal.color, opacity: 0.7 }}>
+                  {signal.unit}
+                </span>
               </>
             ) : (
               <>
-                <span className="text-2xl font-semibold text-zinc-600">-</span>
-                <span className="text-sm text-zinc-600">{signal.unit}</span>
+                <span className="text-2xl font-bold text-zinc-700">-</span>
+                <span className="text-sm text-zinc-700">{signal.unit}</span>
               </>
             )}
           </div>
 
-          <p className="text-xs text-zinc-500 mt-2">
+          <p className="text-[11px] text-zinc-600 mt-1">
             14d avg:{' '}
             {signal.avg14d !== null ? (
               <span className="text-zinc-400">
@@ -74,7 +74,7 @@ export function SignalCards({ signals }: SignalCardsProps) {
                 {signal.unit}
               </span>
             ) : (
-              <span className="text-zinc-600">-</span>
+              <span className="text-zinc-700">-</span>
             )}
           </p>
         </motion.div>
