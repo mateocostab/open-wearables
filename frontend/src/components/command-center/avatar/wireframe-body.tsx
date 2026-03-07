@@ -3,17 +3,14 @@ import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 
-// Target height in scene units — tweak this to fill the viewport
 const TARGET_HEIGHT = 3.2;
-// Rotation speed (radians per frame at 60fps)
-const ROTATION_SPEED = 0.005;
+const ROTATION_SPEED = 0.004;
 
 export function WireframeBody() {
   const groupRef = useRef<THREE.Group>(null);
   const glowRef = useRef<THREE.MeshBasicMaterial>(null);
   const { scene } = useGLTF('/models/human-body.glb');
 
-  // Rotate on own axis + pulsing glow
   useFrame(({ clock }) => {
     if (groupRef.current) {
       groupRef.current.rotation.y += ROTATION_SPEED;
@@ -46,53 +43,59 @@ export function WireframeBody() {
     []
   );
 
-  // Clone, apply materials, compute bounding box
-  const { wireScene, glowScene, scale, center } = useMemo(() => {
+  const { wireScene, glowScene, scale, yOffset, baseY } = useMemo(() => {
+    // Clone and apply materials
     const wClone = scene.clone(true);
     wClone.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
-        child.material = wireframeMaterial;
-      }
+      if (child instanceof THREE.Mesh) child.material = wireframeMaterial;
     });
 
     const gClone = scene.clone(true);
     gClone.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
-        child.material = glowMaterial;
-      }
+      if (child instanceof THREE.Mesh) child.material = glowMaterial;
     });
 
-    // Compute bounding box to auto-center and scale
+    // The model's armature rotates ~105 degrees around X, so the body
+    // extends along -Z instead of +Y. Fix by rotating PI/2 around X.
+    wClone.rotation.x = Math.PI / 2;
+    wClone.updateMatrixWorld(true);
+    gClone.rotation.x = Math.PI / 2;
+    gClone.updateMatrixWorld(true);
+
+    // Now compute bounding box (model should be upright along Y)
     const box = new THREE.Box3().setFromObject(wClone);
     const size = box.getSize(new THREE.Vector3());
-    const c = box.getCenter(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
 
-    // Scale so the model's height == TARGET_HEIGHT
-    const s = TARGET_HEIGHT / size.y;
+    // Scale so the tallest dimension fits TARGET_HEIGHT
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const s = TARGET_HEIGHT / maxDim;
 
-    return { wireScene: wClone, glowScene: gClone, scale: s, center: c };
+    // Center the model at origin
+    const yOff = -center.y * s;
+
+    // Bottom of model
+    const bY = (box.min.y - center.y) * s;
+
+    return {
+      wireScene: wClone,
+      glowScene: gClone,
+      scale: s,
+      yOffset: yOff,
+      baseY: bY,
+    };
   }, [scene, wireframeMaterial, glowMaterial]);
-
-  // Position offsets: center the model at world origin
-  const offsetX = -center.x * scale;
-  const offsetY = -center.y * scale;
-  const offsetZ = -center.z * scale;
-  // Bottom of model in world space
-  const baseY = offsetY - TARGET_HEIGHT / 2;
 
   return (
     <group ref={groupRef}>
-      <group
-        scale={[scale, scale, scale]}
-        position={[offsetX, offsetY, offsetZ]}
-      >
+      <group scale={[scale, scale, scale]} position={[0, yOffset / scale, 0]}>
         <primitive object={wireScene} />
         <primitive object={glowScene} />
       </group>
 
       {/* Glowing base ring at feet */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, baseY, 0]}>
-        <ringGeometry args={[0.55, 0.58, 64]} />
+        <ringGeometry args={[0.5, 0.53, 64]} />
         <meshBasicMaterial
           ref={glowRef}
           color="#00E5FF"
@@ -104,7 +107,7 @@ export function WireframeBody() {
 
       {/* Subtle base disc */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, baseY - 0.01, 0]}>
-        <circleGeometry args={[0.55, 64]} />
+        <circleGeometry args={[0.5, 64]} />
         <meshBasicMaterial
           color="#00E5FF"
           transparent

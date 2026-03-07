@@ -9,9 +9,9 @@ interface HealthScoreProps {
 }
 
 const SEGMENTS: readonly { key: string; label: string; icon: LucideIcon; color: string }[] = [
-  { key: 'recovery', label: 'Recovery', icon: HeartPulse, color: '#00FF7F' },
   { key: 'sleep', label: 'Sleep', icon: Moon, color: '#818CF8' },
   { key: 'activity', label: 'Activity', icon: Zap, color: '#FBBF24' },
+  { key: 'heart', label: 'Heart', icon: HeartPulse, color: '#FB7185' },
 ];
 
 const RADIUS = 70;
@@ -23,10 +23,11 @@ export function HealthScore({ userId }: HealthScoreProps) {
   const signals = useHealthSignals(userId);
 
   const scores = calculateHealthScore({
-    recoveryScore: signals.recovery.value,
     sleepDurationHours: signals.sleep.value,
-    sleepEfficiency: null,
+    sleepEfficiency: signals.sleepEfficiency.value,
     activeCalories: signals.activity.value,
+    restingHr: signals.restingHr.value,
+    hrv: signals.hrv.value,
   });
 
   // Calculate filled arc for the main ring

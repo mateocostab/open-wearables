@@ -106,7 +106,7 @@ export function CommandCenterLayout({ userId }: CommandCenterLayoutProps) {
                 <AvatarCanvas
                   restingHr={restingHr}
                   hrv={signals.hrv.value}
-                  recoveryScore={signals.recovery.value}
+                  recoveryScore={null}
                   sleepHours={signals.sleep.value}
                   activeCalories={signals.activity.value}
                 />
