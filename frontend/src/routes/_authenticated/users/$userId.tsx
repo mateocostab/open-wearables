@@ -10,6 +10,7 @@ import {
   User,
   Dumbbell,
   Activity,
+  HeartPulse,
   Moon,
   Scale,
   Key,
@@ -30,6 +31,7 @@ import { SleepSection } from '@/components/user/sleep-section';
 import { ActivitySection } from '@/components/user/activity-section';
 import { BodySection } from '@/components/user/body-section';
 import { WorkoutSection } from '@/components/user/workout-section';
+import { HeartSection } from '@/components/user/heart-section';
 import type { DateRangeValue } from '@/components/ui/date-range-selector';
 import {
   AlertDialog,
@@ -77,6 +79,7 @@ function UserDetailPage() {
   const [activityDateRange, setActivityDateRange] =
     useState<DateRangeValue>(30);
   const [sleepDateRange, setSleepDateRange] = useState<DateRangeValue>(30);
+  const [heartDateRange, setHeartDateRange] = useState<DateRangeValue>(30);
 
   const { mutate: deleteUser, isPending: isDeleting } = useDeleteUser();
   const { handleUpload, isUploading: isUploadingFile } = useAppleXmlUpload();
@@ -126,6 +129,18 @@ function UserDetailPage() {
         ),
       },
       {
+        id: 'heart',
+        label: 'Heart',
+        icon: HeartPulse,
+        content: (
+          <HeartSection
+            userId={userId}
+            dateRange={heartDateRange}
+            onDateRangeChange={setHeartDateRange}
+          />
+        ),
+      },
+      {
         id: 'sleep',
         label: 'Sleep',
         icon: Moon,
@@ -144,7 +159,7 @@ function UserDetailPage() {
         content: <BodySection userId={userId} />,
       },
     ],
-    [userId, workoutDateRange, activityDateRange, sleepDateRange]
+    [userId, workoutDateRange, activityDateRange, heartDateRange, sleepDateRange]
   );
 
   const handleCopyPairLink = async () => {
