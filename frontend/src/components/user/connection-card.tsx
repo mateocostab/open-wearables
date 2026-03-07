@@ -29,7 +29,7 @@ import {
   useRetryGarminBackfill,
 } from '@/hooks/api/use-health';
 
-const providerDisplayNames: Record<string, string> = {
+export const providerDisplayNames: Record<string, string> = {
   'auto-health-export': "Mateo's Apple Watch Ultra 2",
   'whoop': "Mateo's Whoop",
 };

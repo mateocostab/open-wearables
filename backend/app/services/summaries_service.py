@@ -175,15 +175,20 @@ class SummariesService:
         end_date: datetime,
         cursor: str | None,
         limit: int,
+        data_source_id: UUID | None = None,
     ) -> PaginatedResponse[SleepSummary]:
         """Get daily sleep summaries aggregated by date, provider, and device."""
         self.logger.debug(f"Fetching sleep summaries for user {user_id} from {start_date} to {end_date}")
 
         # Get aggregated data from repository (now returns list of dicts)
-        results = self.event_record_repo.get_sleep_summaries(db_session, user_id, start_date, end_date, cursor, limit)
+        results = self.event_record_repo.get_sleep_summaries(
+            db_session, user_id, start_date, end_date, cursor, limit,
+            data_source_id=data_source_id,
+        )
 
-        # Filter by priority to get best source per date
-        results = self._filter_by_priority(db_session, user_id, results, date_key="sleep_date")
+        # Skip priority dedup when filtering by specific device
+        if not data_source_id:
+            results = self._filter_by_priority(db_session, user_id, results, date_key="sleep_date")
 
         # Check if there's more data
         has_more = len(results) > limit
@@ -296,6 +301,7 @@ class SummariesService:
         cursor: str | None,
         limit: int,
         sort_order: str = "asc",
+        data_source_id: UUID | None = None,
     ) -> PaginatedResponse[ActivitySummary]:
         """Get daily activity summaries aggregated by date, provider, and device.
 
@@ -309,14 +315,19 @@ class SummariesService:
         - Active/sedentary minutes (based on step threshold)
         - Intensity minutes (HR zones using max HR = 220 - age):
           light 50-63%, moderate 64-76%, vigorous 77-93%
+
+        When data_source_id is provided, returns only that device's data without priority dedup.
         """
         self.logger.debug(f"Fetching activity summaries for user {user_id} from {start_date} to {end_date}")
 
         # Get aggregated data from time-series repository
-        results = self.data_point_repo.get_daily_activity_aggregates(db_session, user_id, start_date, end_date)
+        results = self.data_point_repo.get_daily_activity_aggregates(
+            db_session, user_id, start_date, end_date, data_source_id=data_source_id
+        )
 
-        # Filter by priority to get best source per date
-        results = self._filter_by_priority(db_session, user_id, results, date_key="activity_date")
+        # Skip priority dedup when filtering by specific device
+        if not data_source_id:
+            results = self._filter_by_priority(db_session, user_id, results, date_key="activity_date")
 
         # Get workout aggregates (elevation, distance, energy from workouts)
         workout_aggregates = self.event_record_repo.get_daily_workout_aggregates(
@@ -331,7 +342,8 @@ class SummariesService:
 
         # Get active/sedentary minutes from step data
         activity_minutes = self.data_point_repo.get_daily_active_minutes(
-            db_session, user_id, start_date, end_date, active_threshold=ACTIVE_STEPS_THRESHOLD
+            db_session, user_id, start_date, end_date, active_threshold=ACTIVE_STEPS_THRESHOLD,
+            data_source_id=data_source_id,
         )
 
         # Build lookup for activity minutes
@@ -353,6 +365,7 @@ class SummariesService:
             light_max=hr_zones["light_max"],
             moderate_max=hr_zones["moderate_max"],
             vigorous_max=hr_zones["vigorous_max"],
+            data_source_id=data_source_id,
         )
 
         # Build lookup for intensity minutes

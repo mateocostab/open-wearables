@@ -28,15 +28,18 @@ async def get_activity_summary(
     cursor: str | None = None,
     limit: Annotated[int, Query(ge=1, le=400)] = 50,
     sort_order: Annotated[str, Query(pattern="^(asc|desc)$")] = "asc",
+    data_source_id: UUID | None = None,
 ) -> PaginatedResponse[ActivitySummary]:
     """Returns daily aggregated activity metrics.
 
     Aggregates time-series data (steps, energy, heart rate, etc.) by day.
+    When data_source_id is provided, returns only that device's data without priority dedup.
     """
     start_datetime = parse_query_datetime(start_date)
     end_datetime = parse_query_datetime(end_date)
     return await summaries_service.get_activity_summaries(
-        db, user_id, start_datetime, end_datetime, cursor, limit, sort_order
+        db, user_id, start_datetime, end_datetime, cursor, limit, sort_order,
+        data_source_id=data_source_id,
     )
 
 
@@ -49,11 +52,18 @@ async def get_sleep_summary(
     _api_key: ApiKeyDep,
     cursor: str | None = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    data_source_id: UUID | None = None,
 ) -> PaginatedResponse[SleepSummary]:
-    """Returns daily sleep metrics."""
+    """Returns daily sleep metrics.
+
+    When data_source_id is provided, returns only that device's data without priority dedup.
+    """
     start_datetime = parse_query_datetime(start_date)
     end_datetime = parse_query_datetime(end_date)
-    return await summaries_service.get_sleep_summaries(db, user_id, start_datetime, end_datetime, cursor, limit)
+    return await summaries_service.get_sleep_summaries(
+        db, user_id, start_datetime, end_datetime, cursor, limit,
+        data_source_id=data_source_id,
+    )
 
 
 @router.get("/users/{user_id}/summaries/recovery")

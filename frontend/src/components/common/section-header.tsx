@@ -22,10 +22,12 @@ export function SectionHeader({
   return (
     <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
       <h3 className="text-sm font-medium text-white">{title}</h3>
-      {dateRange !== undefined && onDateRangeChange && (
-        <DateRangeSelector value={dateRange} onChange={onDateRangeChange} />
-      )}
-      {rightContent}
+      <div className="flex items-center gap-3">
+        {rightContent}
+        {dateRange !== undefined && onDateRangeChange && (
+          <DateRangeSelector value={dateRange} onChange={onDateRangeChange} />
+        )}
+      </div>
     </div>
   );
 }

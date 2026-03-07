@@ -39,11 +39,16 @@ import {
   type ActivityMetricKey,
 } from '@/lib/utils/activity';
 import type { ActivitySummary } from '@/lib/api/types';
+import type { DataSource } from '@/lib/api/services/priority.service';
+import { DeviceSelector } from '@/components/common/device-selector';
 
 interface ActivitySectionProps {
   userId: string;
   dateRange: DateRangeValue;
   onDateRangeChange: (value: DateRangeValue) => void;
+  dataSources?: DataSource[];
+  deviceFilter?: string | null;
+  onDeviceFilterChange?: (value: string | null) => void;
 }
 
 const DAYS_PER_PAGE = 10;
@@ -321,6 +326,9 @@ export function ActivitySection({
   userId,
   dateRange,
   onDateRangeChange,
+  dataSources = [],
+  deviceFilter = null,
+  onDeviceFilterChange,
 }: ActivitySectionProps) {
   // Cursor-based pagination for activity days
   const pagination = useCursorPagination();
@@ -336,6 +344,7 @@ export function ActivitySection({
       start_date: startDate,
       end_date: endDate,
       limit: dateRange,
+      ...(deviceFilter ? { data_source_id: deviceFilter } : {}),
     }
   );
 
@@ -349,6 +358,7 @@ export function ActivitySection({
     limit: DAYS_PER_PAGE,
     cursor: pagination.currentCursor ?? undefined,
     sort_order: 'desc',
+    ...(deviceFilter ? { data_source_id: deviceFilter } : {}),
   });
 
   // Derive pagination state from response
@@ -397,6 +407,15 @@ export function ActivitySection({
           title="Activity Summary"
           dateRange={dateRange}
           onDateRangeChange={onDateRangeChange}
+          rightContent={
+            onDeviceFilterChange && dataSources.length > 1 ? (
+              <DeviceSelector
+                dataSources={dataSources}
+                value={deviceFilter}
+                onChange={onDeviceFilterChange}
+              />
+            ) : undefined
+          }
         />
 
         <div className="p-6">

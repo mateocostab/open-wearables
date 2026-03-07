@@ -401,10 +401,12 @@ class DataPointSeriesRepository(
         user_id: UUID,
         start_date: datetime,
         end_date: datetime,
+        data_source_id: UUID | None = None,
     ) -> list[ActivityAggregateResult]:
         """Get daily activity aggregates from time-series data.
 
         Aggregates steps, energy, heart rate stats by date for a user.
+        When data_source_id is provided, filters to only that device's data.
 
         Returns list of dicts with keys:
         - activity_date, source, device_model
@@ -468,7 +470,13 @@ class DataPointSeriesRepository(
                     [steps_id, energy_id, basal_energy_id, hr_id, distance_id, flights_id]
                 ),
             )
-            .group_by(
+        )
+
+        if data_source_id:
+            results = results.filter(DataSource.id == data_source_id)
+
+        results = (
+            results.group_by(
                 cast(self.model.recorded_at, Date),
                 DataSource.source,
             )
@@ -504,6 +512,7 @@ class DataPointSeriesRepository(
         start_date: datetime,
         end_date: datetime,
         active_threshold: int = 30,
+        data_source_id: UUID | None = None,
     ) -> list[ActiveMinutesResult]:
         """Get daily active/sedentary minutes from step data.
 
@@ -526,7 +535,7 @@ class DataPointSeriesRepository(
 
         # Subquery: bucket step data by minute and sum steps per minute
         # Groups by (date, source, minute) — merges devices within same source
-        minute_bucket = (
+        step_query = (
             db_session.query(
                 cast(self.model.recorded_at, Date).label("activity_date"),
                 DataSource.source,
@@ -540,7 +549,13 @@ class DataPointSeriesRepository(
                 cast(self.model.recorded_at, Date) < cast(end_date, Date),
                 self.model.series_type_definition_id == steps_id,
             )
-            .group_by(
+        )
+
+        if data_source_id:
+            step_query = step_query.filter(DataSource.id == data_source_id)
+
+        minute_bucket = (
+            step_query.group_by(
                 cast(self.model.recorded_at, Date),
                 DataSource.source,
                 minute_trunc,
@@ -595,6 +610,7 @@ class DataPointSeriesRepository(
         light_max: int,
         moderate_max: int,
         vigorous_max: int,
+        data_source_id: UUID | None = None,
     ) -> list[IntensityMinutesResult]:
         """Get daily intensity minutes from heart rate data.
 
@@ -618,7 +634,7 @@ class DataPointSeriesRepository(
 
         # Subquery: bucket HR data by minute and get avg HR per minute
         # Groups by (date, source, minute) — merges devices within same source
-        minute_bucket = (
+        hr_query = (
             db_session.query(
                 cast(self.model.recorded_at, Date).label("activity_date"),
                 DataSource.source,
@@ -632,7 +648,13 @@ class DataPointSeriesRepository(
                 cast(self.model.recorded_at, Date) < cast(end_date, Date),
                 self.model.series_type_definition_id == hr_id,
             )
-            .group_by(
+        )
+
+        if data_source_id:
+            hr_query = hr_query.filter(DataSource.id == data_source_id)
+
+        minute_bucket = (
+            hr_query.group_by(
                 cast(self.model.recorded_at, Date),
                 DataSource.source,
                 minute_trunc,

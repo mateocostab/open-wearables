@@ -297,6 +297,7 @@ class EventRecordRepository(
         end_date: datetime,
         cursor: str | None,
         limit: int,
+        data_source_id: UUID | None = None,
     ) -> list[dict]:
         """Get daily sleep summaries aggregated by date, source, and device_model.
 
@@ -364,6 +365,7 @@ class EventRecordRepository(
                 EventRecord.category == "sleep",
                 EventRecord.end_datetime >= start_date,
                 cast(EventRecord.end_datetime, Date) < cast(end_date, Date),
+                *([DataSource.id == data_source_id] if data_source_id else []),
             )
             .group_by(
                 cast(EventRecord.end_datetime, Date),

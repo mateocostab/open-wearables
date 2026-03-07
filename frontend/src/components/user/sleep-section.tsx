@@ -61,11 +61,16 @@ import type {
   SleepStagesSummary,
   SleepSummary,
 } from '@/lib/api/types';
+import type { DataSource } from '@/lib/api/services/priority.service';
+import { DeviceSelector } from '@/components/common/device-selector';
 
 interface SleepSectionProps {
   userId: string;
   dateRange: DateRangeValue;
   onDateRangeChange: (value: DateRangeValue) => void;
+  dataSources?: DataSource[];
+  deviceFilter?: string | null;
+  onDeviceFilterChange?: (value: string | null) => void;
 }
 
 const SESSIONS_PER_PAGE = 10;
@@ -454,6 +459,9 @@ export function SleepSection({
   userId,
   dateRange,
   onDateRangeChange,
+  dataSources = [],
+  deviceFilter = null,
+  onDeviceFilterChange,
 }: SleepSectionProps) {
   // Cursor-based pagination for sleep sessions
   const pagination = useCursorPagination();
@@ -469,6 +477,7 @@ export function SleepSection({
       start_date: startDate,
       end_date: endDate,
       limit: 100,
+      ...(deviceFilter ? { data_source_id: deviceFilter } : {}),
     }
   );
 
@@ -529,6 +538,15 @@ export function SleepSection({
           title="Sleep Summary"
           dateRange={dateRange}
           onDateRangeChange={onDateRangeChange}
+          rightContent={
+            onDeviceFilterChange && dataSources.length > 1 ? (
+              <DeviceSelector
+                dataSources={dataSources}
+                value={deviceFilter}
+                onChange={onDeviceFilterChange}
+              />
+            ) : undefined
+          }
         />
 
         <div className="p-6">

@@ -43,6 +43,7 @@ export interface SummaryParams {
   cursor?: string;
   limit?: number; // 1-100, default 50
   sort_order?: 'asc' | 'desc';
+  data_source_id?: string; // Filter to a specific device
   [key: string]: string | number | undefined;
 }
 

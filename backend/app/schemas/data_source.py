@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -48,3 +49,26 @@ class DataSourceResponse(BaseModel):
 class DataSourceListResponse(BaseModel):
     items: list[DataSourceResponse]
     total: int
+
+
+class MetricCoverage(BaseModel):
+    series_type: str
+    count: int
+    earliest: datetime
+    latest: datetime
+
+
+class DataSourceCoverage(BaseModel):
+    data_source_id: UUID
+    display_name: str
+    provider: ProviderName
+    device_type: str | None = None
+    device_model: str | None = None
+    metrics: list[MetricCoverage]
+    total_data_points: int
+    earliest_data: datetime | None = None
+    latest_data: datetime | None = None
+
+
+class DataSourceCoverageListResponse(BaseModel):
+    items: list[DataSourceCoverage]

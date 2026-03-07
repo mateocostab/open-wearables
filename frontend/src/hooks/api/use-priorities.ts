@@ -74,6 +74,14 @@ export function useUserDataSources(userId: string) {
   });
 }
 
+export function useDeviceCoverage(userId: string) {
+  return useQuery({
+    queryKey: queryKeys.priorities.coverage(userId),
+    queryFn: () => priorityService.getDeviceCoverage(userId),
+    enabled: !!userId,
+  });
+}
+
 export function useUpdateDataSourceEnabled() {
   const queryClient = useQueryClient();
 

@@ -65,6 +65,29 @@ export interface DataSourceListResponse {
   total: number;
 }
 
+export interface MetricCoverage {
+  series_type: string;
+  count: number;
+  earliest: string;
+  latest: string;
+}
+
+export interface DataSourceCoverage {
+  data_source_id: string;
+  display_name: string;
+  provider: ProviderName;
+  device_type: DeviceType | null;
+  device_model: string | null;
+  metrics: MetricCoverage[];
+  total_data_points: number;
+  earliest_data: string | null;
+  latest_data: string | null;
+}
+
+export interface DataSourceCoverageListResponse {
+  items: DataSourceCoverage[];
+}
+
 export interface DeviceTypePriority {
   id: string;
   device_type: DeviceType;
@@ -155,6 +178,19 @@ export const priorityService = {
         data
       );
       return response;
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw ApiError.networkError((error as Error).message);
+    }
+  },
+
+  // Device Coverage
+  async getDeviceCoverage(userId: string): Promise<DataSourceCoverage[]> {
+    try {
+      const response = await apiClient.get<DataSourceCoverageListResponse>(
+        `/api/v1/users/${userId}/data-sources/coverage`
+      );
+      return response.items;
     } catch (error) {
       if (error instanceof ApiError) throw error;
       throw ApiError.networkError((error as Error).message);

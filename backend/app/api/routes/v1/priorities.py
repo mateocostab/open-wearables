@@ -7,7 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Path
 
 from app.database import DbSession
-from app.schemas.data_source import DataSourceListResponse
+from app.schemas.data_source import DataSourceCoverageListResponse, DataSourceListResponse
 from app.schemas.device_type import DeviceType
 from app.schemas.device_type_priority import (
     DeviceTypePriorityBulkUpdate,
@@ -74,6 +74,19 @@ async def get_user_data_sources(
     user_id: Annotated[UUID, Path(description="User ID")],
 ) -> DataSourceListResponse:
     return await priority_service.get_user_data_sources(db, user_id)
+
+
+@router.get(
+    "/users/{user_id}/data-sources/coverage",
+    summary="Get device data coverage matrix",
+)
+async def get_device_coverage(
+    db: DbSession,
+    _api_key: ApiKeyDep,
+    user_id: Annotated[UUID, Path(description="User ID")],
+) -> DataSourceCoverageListResponse:
+    """Returns which metrics each device tracks, with counts and date ranges."""
+    return await priority_service.get_device_coverage(db, user_id)
 
 
 @router.get(
