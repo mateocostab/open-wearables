@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, redirect, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, Outlet, redirect, useNavigate, useSearch } from '@tanstack/react-router';
 import { isAuthenticated } from '@/lib/auth/session';
 import { DEFAULT_REDIRECTS, ROUTES } from '@/lib/constants/routes';
 import { HealthOSSidebar } from '@/components/layout/healthos-sidebar';
@@ -15,15 +15,15 @@ export const Route = createFileRoute('/_authenticated')({
       throw redirect({ to: DEFAULT_REDIRECTS.unauthenticated });
     }
   },
+  validateSearch: (search: Record<string, unknown>) => ({
+    section: (search.section as string) ?? 'overview',
+  }),
 });
 
 function AuthenticatedLayout() {
   const navigate = useNavigate();
-
-  const section =
-    typeof window !== 'undefined'
-      ? new URLSearchParams(window.location.search).get('section') ?? 'overview'
-      : 'overview';
+  const { section } = Route.useSearch();
+  const activeSection = section ?? 'overview';
 
   const handleNavigateToSection = useCallback(
     (newSection: string) => {
@@ -38,7 +38,7 @@ function AuthenticatedLayout() {
   return (
     <div className="min-h-screen bg-zinc-950">
       <HealthOSSidebar
-        activeSection={section}
+        activeSection={activeSection}
         onNavigateToSection={handleNavigateToSection}
       />
       <main className="ml-60 min-h-screen overflow-auto">
