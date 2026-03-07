@@ -29,6 +29,11 @@ import {
   useRetryGarminBackfill,
 } from '@/hooks/api/use-health';
 
+const providerDisplayNames: Record<string, string> = {
+  'auto-health-export': "Mateo's Apple Watch Ultra 2",
+  'whoop': "Mateo's Whoop",
+};
+
 interface ConnectionCardProps {
   connection: UserConnection;
   className?: string;
@@ -141,7 +146,7 @@ export function ConnectionCard({ connection, className }: ConnectionCardProps) {
             </div>
             <div>
               <h3 className="font-semibold text-card-foreground text-lg">
-                {connection.provider}
+                {providerDisplayNames[connection.provider] ?? connection.provider}
               </h3>
               <p className="text-sm text-muted-foreground mt-0.5">
                 Last sync:{' '}
