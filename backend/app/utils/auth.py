@@ -126,9 +126,15 @@ async def get_sdk_auth(
                     app_id=payload.get("app_id"),
                 )
         except JWTError:
-            pass  # Fall through to API key check
+            # Bearer token is not a JWT — try it as an API key
+            # (supports clients like Auto Health Export that send API keys as Bearer tokens)
+            try:
+                api_key = api_key_service.validate_api_key(db, token)
+                return SDKAuthContext(auth_type="api_key", api_key_id=api_key.id)
+            except HTTPException:
+                pass  # Fall through to X-Open-Wearables-API-Key header check
 
-    # Fall back to API key (backwards compatibility)
+    # Fall back to API key via header
     if x_open_wearables_api_key:
         api_key = api_key_service.validate_api_key(db, x_open_wearables_api_key)
         return SDKAuthContext(auth_type="api_key", api_key_id=api_key.id)
