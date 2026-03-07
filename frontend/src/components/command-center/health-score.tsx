@@ -17,7 +17,6 @@ const SEGMENTS: readonly { key: string; label: string; icon: LucideIcon; color: 
 const RADIUS = 70;
 const STROKE_WIDTH = 10;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
-const GAP = 6;
 
 export function HealthScore({ userId }: HealthScoreProps) {
   const signals = useHealthSignals(userId);
@@ -30,11 +29,9 @@ export function HealthScore({ userId }: HealthScoreProps) {
     hrv: signals.hrv.value,
   });
 
-  // Calculate filled arc for the main ring
   const mainProgress = scores.composite / 100;
   const mainDashoffset = CIRCUMFERENCE * (1 - mainProgress);
 
-  // Score color based on value
   const scoreColor =
     scores.composite >= 70
       ? '#00FF7F'
@@ -43,11 +40,26 @@ export function HealthScore({ userId }: HealthScoreProps) {
         : '#EF4444';
 
   return (
-    <div className="glass-panel p-5">
+    <div
+      className="glass-panel p-5 relative overflow-hidden"
+      style={{
+        boxShadow: `0 0 30px ${scoreColor}10, inset 0 1px 0 rgba(255,255,255,0.03)`,
+      }}
+    >
+      {/* Header with pulse dot */}
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-cyan-400" />
           <span className="text-sm font-semibold text-white">Health Score</span>
+          <span className="flex items-center gap-1.5 ml-2">
+            <span
+              className="h-1.5 w-1.5 rounded-full animate-pulse-dot"
+              style={{ backgroundColor: scoreColor }}
+            />
+            <span className="text-[9px] font-medium uppercase tracking-wider text-zinc-500">
+              Live
+            </span>
+          </span>
         </div>
         <span className="text-[11px] text-zinc-500 px-2 py-0.5 rounded bg-zinc-800/50">
           {format(new Date(), 'yyyy-MM-dd')}
@@ -55,9 +67,26 @@ export function HealthScore({ userId }: HealthScoreProps) {
       </div>
 
       <div className="flex items-center gap-6">
-        {/* Donut */}
+        {/* Donut with glow */}
         <div className="relative shrink-0">
-          <svg viewBox="0 0 160 160" width={160} height={160}>
+          {/* Outer glow behind SVG */}
+          <div
+            className="absolute inset-0 rounded-full blur-xl opacity-30"
+            style={{ background: `radial-gradient(circle, ${scoreColor}40 0%, transparent 70%)` }}
+          />
+
+          <svg viewBox="0 0 160 160" width={160} height={160} className="relative">
+            {/* Glow filter */}
+            <defs>
+              <filter id="health-glow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
+
             {/* Background ring */}
             <circle
               cx={80}
@@ -67,7 +96,8 @@ export function HealthScore({ userId }: HealthScoreProps) {
               stroke="rgb(39 39 42)"
               strokeWidth={STROKE_WIDTH}
             />
-            {/* Score arc */}
+
+            {/* Score arc with glow */}
             <circle
               cx={80}
               cy={80}
@@ -80,8 +110,20 @@ export function HealthScore({ userId }: HealthScoreProps) {
               strokeLinecap="round"
               transform="rotate(-90 80 80)"
               className="transition-all duration-1000"
-              style={{ filter: `drop-shadow(0 0 6px ${scoreColor}40)` }}
+              filter="url(#health-glow)"
             />
+
+            {/* Bright end-cap dot on the arc tip */}
+            {mainProgress > 0.02 && (
+              <circle
+                cx={80 + RADIUS * Math.cos(-Math.PI / 2 + mainProgress * 2 * Math.PI)}
+                cy={80 + RADIUS * Math.sin(-Math.PI / 2 + mainProgress * 2 * Math.PI)}
+                r={6}
+                fill={scoreColor}
+                opacity={0.5}
+                filter="url(#health-glow)"
+              />
+            )}
           </svg>
 
           {/* Center label */}
@@ -128,6 +170,7 @@ export function HealthScore({ userId }: HealthScoreProps) {
                       style={{
                         width: `${subScore}%`,
                         backgroundColor: segment.color,
+                        boxShadow: subScore > 0 ? `0 0 8px ${segment.color}60` : 'none',
                       }}
                     />
                   </div>
