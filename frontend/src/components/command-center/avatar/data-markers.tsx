@@ -48,11 +48,15 @@ function MarkerLabel({
 export function DataMarkers({
   restingHr,
   hrv,
-  recoveryScore,
   sleepHours,
   activeCalories,
 }: DataMarkersProps) {
   const markers: MarkerConfig[] = [];
+
+  // Positions are in world space - the model extends roughly:
+  // Y: -1.5 to 2.2, Z: -18 to 0, X: -3.3 to 3.4
+  // Center is around (0, 0.4, -9)
+  // Camera looks at center, so markers should be offset from center
 
   if (restingHr != null || hrv != null) {
     const parts: string[] = [];
@@ -63,22 +67,18 @@ export function DataMarkers({
       label: 'Heart',
       value: parts.join(' · '),
       color: '#EF4444',
-      bodyAnchor: [-0.2, 0.3, 0.2],
-      labelOffset: [-1.4, 0.3, 0.2],
+      bodyAnchor: [-1.5, 0.5, -7],
+      labelOffset: [-4.5, 0.5, -7],
     });
   }
 
-  if (recoveryScore != null || sleepHours != null) {
-    const parts: string[] = [];
-    if (recoveryScore != null) parts.push(`${recoveryScore}%`);
-    if (sleepHours != null) parts.push(`${sleepHours.toFixed(1)}h`);
-
+  if (sleepHours != null) {
     markers.push({
-      label: 'Recovery',
-      value: parts.join(' · '),
-      color: '#A78BFA',
-      bodyAnchor: [0.2, 1.2, 0],
-      labelOffset: [1.4, 1.3, 0],
+      label: 'Sleep',
+      value: `${sleepHours.toFixed(1)}h`,
+      color: '#818CF8',
+      bodyAnchor: [1.5, 1.5, -5],
+      labelOffset: [4.5, 1.5, -5],
     });
   }
 
@@ -87,8 +87,8 @@ export function DataMarkers({
       label: 'Activity',
       value: `${activeCalories} kcal`,
       color: '#34D399',
-      bodyAnchor: [0.4, -0.5, 0],
-      labelOffset: [1.4, -0.5, 0],
+      bodyAnchor: [2.0, -0.5, -12],
+      labelOffset: [5.0, -0.5, -12],
     });
   }
 
@@ -105,7 +105,7 @@ export function DataMarkers({
           />
           <Html
             position={marker.labelOffset}
-            distanceFactor={4}
+            distanceFactor={12}
             zIndexRange={[10, 0]}
             center
           >

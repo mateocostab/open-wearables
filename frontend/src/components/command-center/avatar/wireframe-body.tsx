@@ -1,15 +1,15 @@
-import { useRef, useMemo } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useRef, useMemo, useEffect } from 'react';
+import { useFrame, useThree } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 
-const TARGET_HEIGHT = 3.2;
 const ROTATION_SPEED = 0.004;
 
 export function WireframeBody() {
   const groupRef = useRef<THREE.Group>(null);
   const glowRef = useRef<THREE.MeshBasicMaterial>(null);
   const { scene } = useGLTF('/models/human-body.glb');
+  const { camera } = useThree();
 
   useFrame(({ clock }) => {
     if (groupRef.current) {
@@ -43,75 +43,70 @@ export function WireframeBody() {
     []
   );
 
-  const { wireScene, glowScene, scale, yOffset, baseY } = useMemo(() => {
-    // Clone and apply materials
+  const { wireScene, glowScene } = useMemo(() => {
     const wClone = scene.clone(true);
     wClone.traverse((child) => {
       if (child instanceof THREE.Mesh) child.material = wireframeMaterial;
     });
-
     const gClone = scene.clone(true);
     gClone.traverse((child) => {
       if (child instanceof THREE.Mesh) child.material = glowMaterial;
     });
-
-    // The model's armature rotates ~105 degrees around X, so the body
-    // extends along -Z instead of +Y. Fix by rotating PI/2 around X.
-    wClone.rotation.x = Math.PI / 2;
-    wClone.updateMatrixWorld(true);
-    gClone.rotation.x = Math.PI / 2;
-    gClone.updateMatrixWorld(true);
-
-    // Now compute bounding box (model should be upright along Y)
-    const box = new THREE.Box3().setFromObject(wClone);
-    const size = box.getSize(new THREE.Vector3());
-    const center = box.getCenter(new THREE.Vector3());
-
-    // Scale so the tallest dimension fits TARGET_HEIGHT
-    const maxDim = Math.max(size.x, size.y, size.z);
-    const s = TARGET_HEIGHT / maxDim;
-
-    // Center the model at origin
-    const yOff = -center.y * s;
-
-    // Bottom of model
-    const bY = (box.min.y - center.y) * s;
-
-    return {
-      wireScene: wClone,
-      glowScene: gClone,
-      scale: s,
-      yOffset: yOff,
-      baseY: bY,
-    };
+    return { wireScene: wClone, glowScene: gClone };
   }, [scene, wireframeMaterial, glowMaterial]);
+
+  // After mount, compute the world-space bounding box and fit the camera
+  useEffect(() => {
+    if (!groupRef.current) return;
+
+    // Force a matrix update so skinned mesh transforms are applied
+    groupRef.current.updateMatrixWorld(true);
+
+    const box = new THREE.Box3().setFromObject(groupRef.current);
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+
+    // Move the camera to see the whole model
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const fov = (camera as THREE.PerspectiveCamera).fov * (Math.PI / 180);
+    const dist = maxDim / (2 * Math.tan(fov / 2)) * 1.3; // 1.3 = padding
+
+    camera.position.set(center.x + dist * 0.3, center.y, center.z + dist);
+    camera.lookAt(center);
+    camera.updateProjectionMatrix();
+  }, [wireScene, camera]);
+
+  // Compute base ring position from the bounding box
+  const ringY = useMemo(() => {
+    const tempGroup = new THREE.Group();
+    tempGroup.add(wireScene.clone(true));
+    tempGroup.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(tempGroup);
+    return box.min.y;
+  }, [wireScene]);
 
   return (
     <group ref={groupRef}>
-      <group scale={[scale, scale, scale]} position={[0, yOffset / scale, 0]}>
-        <primitive object={wireScene} />
-        <primitive object={glowScene} />
-      </group>
+      <primitive object={wireScene} />
+      <primitive object={glowScene} />
 
-      {/* Glowing base ring at feet */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, baseY, 0]}>
-        <ringGeometry args={[0.5, 0.53, 64]} />
+      {/* Base ring at feet */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, ringY, 0]}>
+        <ringGeometry args={[2.0, 2.1, 64]} />
         <meshBasicMaterial
           ref={glowRef}
           color="#00E5FF"
           transparent
-          opacity={0.25}
+          opacity={0.2}
           side={THREE.DoubleSide}
         />
       </mesh>
-
-      {/* Subtle base disc */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, baseY - 0.01, 0]}>
-        <circleGeometry args={[0.5, 64]} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, ringY - 0.01, 0]}>
+        <circleGeometry args={[2.0, 64]} />
         <meshBasicMaterial
           color="#00E5FF"
           transparent
-          opacity={0.03}
+          opacity={0.02}
           side={THREE.DoubleSide}
         />
       </mesh>
