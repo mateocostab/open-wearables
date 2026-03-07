@@ -24,7 +24,7 @@ const itemVariants = {
 };
 
 export function SignalCards({ signals }: SignalCardsProps) {
-  const cards = [signals.recovery, signals.sleep, signals.activity, signals.hrv];
+  const cards = [signals.sleep, signals.activity, signals.hrv, signals.restingHr];
 
   return (
     <motion.div
