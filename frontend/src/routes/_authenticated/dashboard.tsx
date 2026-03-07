@@ -1,11 +1,13 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useState, useMemo, type ReactNode } from 'react';
-import { Activity, Dumbbell, Moon, Scale, type LucideIcon } from 'lucide-react';
+import { Activity, Dumbbell, Moon, Scale, Watch, type LucideIcon } from 'lucide-react';
 import { useUsers } from '@/hooks/api/use-users';
+import { useUserConnections } from '@/hooks/api/use-health';
 import { ActivitySection } from '@/components/user/activity-section';
 import { SleepSection } from '@/components/user/sleep-section';
 import { WorkoutSection } from '@/components/user/workout-section';
 import { BodySection } from '@/components/user/body-section';
+import { ConnectionCard } from '@/components/user/connection-card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import type { DateRangeValue } from '@/components/ui/date-range-selector';
 
@@ -76,6 +78,12 @@ function DashboardPage() {
               icon: Scale,
               content: <BodySection userId={userId} />,
             },
+            {
+              id: 'devices',
+              label: 'Devices',
+              icon: Watch,
+              content: <DevicesSection userId={userId} />,
+            },
           ]
         : [],
     [userId, activityDateRange, sleepDateRange, workoutDateRange]
@@ -130,6 +138,36 @@ function DashboardPage() {
           </TabsContent>
         ))}
       </Tabs>
+    </div>
+  );
+}
+
+function DevicesSection({ userId }: { userId: string }) {
+  const { data: connections, isLoading } = useUserConnections(userId);
+
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+        {[1, 2].map((i) => (
+          <div key={i} className="h-40 bg-zinc-800 rounded-lg animate-pulse" />
+        ))}
+      </div>
+    );
+  }
+
+  if (!connections || connections.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-zinc-500">No devices connected yet</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-6 grid-cols-[repeat(auto-fit,minmax(400px,1fr))] mt-4">
+      {connections.map((connection) => (
+        <ConnectionCard key={connection.id} connection={connection} />
+      ))}
     </div>
   );
 }
