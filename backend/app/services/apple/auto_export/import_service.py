@@ -15,12 +15,75 @@ from app.schemas import (
     RootJSON,
     UploadDataResponse,
 )
+from app.schemas.apple.auto_export.json_schemas import MetricJSON
+from app.schemas.series_types import SeriesType
+from app.schemas.timeseries import TimeSeriesSampleCreate
 from app.services.event_record_service import event_record_service
 from app.services.timeseries_service import timeseries_service
 from app.utils.exceptions import handle_exceptions
 from app.utils.structured_logging import log_structured
 
 APPLE_DT_FORMAT = "%Y-%m-%d %H:%M:%S %z"
+
+# Mapping from Health Auto Export metric names to SeriesType.
+# Keys are the `name` field from the JSON payload (snake_case).
+AE_METRIC_TO_SERIES_TYPE: dict[str, SeriesType] = {
+    # Heart & Cardiovascular
+    "heart_rate": SeriesType.heart_rate,
+    "resting_heart_rate": SeriesType.resting_heart_rate,
+    "heart_rate_variability": SeriesType.heart_rate_variability_sdnn,
+    "walking_heart_rate_average": SeriesType.walking_heart_rate_average,
+    # Blood & Respiratory
+    "oxygen_saturation": SeriesType.oxygen_saturation,
+    "respiratory_rate": SeriesType.respiratory_rate,
+    "blood_glucose": SeriesType.blood_glucose,
+    # Body Composition
+    "weight": SeriesType.weight,
+    "body_fat_percentage": SeriesType.body_fat_percentage,
+    "body_mass_index": SeriesType.body_mass_index,
+    "lean_body_mass": SeriesType.lean_body_mass,
+    "height": SeriesType.height,
+    "body_temperature": SeriesType.body_temperature,
+    "waist_circumference": SeriesType.waist_circumference,
+    # Fitness
+    "vo2_max": SeriesType.vo2_max,
+    # Activity - Basic
+    "step_count": SeriesType.steps,
+    "steps": SeriesType.steps,
+    "active_energy": SeriesType.energy,
+    "active_energy_burned": SeriesType.energy,
+    "basal_energy_burned": SeriesType.basal_energy,
+    "apple_stand_time": SeriesType.stand_time,
+    "stand_time": SeriesType.stand_time,
+    "apple_exercise_time": SeriesType.exercise_time,
+    "exercise_time": SeriesType.exercise_time,
+    "flights_climbed": SeriesType.flights_climbed,
+    # Activity - Distance
+    "distance_walking_running": SeriesType.distance_walking_running,
+    "distance_cycling": SeriesType.distance_cycling,
+    "distance_swimming": SeriesType.distance_swimming,
+    # Activity - Walking Metrics
+    "walking_step_length": SeriesType.walking_step_length,
+    "walking_speed": SeriesType.walking_speed,
+    "walking_double_support_percentage": SeriesType.walking_double_support_percentage,
+    "walking_asymmetry_percentage": SeriesType.walking_asymmetry_percentage,
+    "walking_steadiness": SeriesType.walking_steadiness,
+    "stair_descent_speed": SeriesType.stair_descent_speed,
+    "stair_ascent_speed": SeriesType.stair_ascent_speed,
+    # Activity - Running Metrics
+    "running_power": SeriesType.running_power,
+    "running_speed": SeriesType.running_speed,
+    "running_stride_length": SeriesType.running_stride_length,
+    "running_ground_contact_time": SeriesType.running_ground_contact_time,
+    "running_vertical_oscillation": SeriesType.running_vertical_oscillation,
+    # Environmental
+    "environmental_audio_exposure": SeriesType.environmental_audio_exposure,
+    "headphone_audio_exposure": SeriesType.headphone_audio_exposure,
+    "time_in_daylight": SeriesType.time_in_daylight,
+}
+
+# Blood pressure is compound — maps to two series types
+AE_BLOOD_PRESSURE_NAME = "blood_pressure"
 
 
 class ImportService:
@@ -88,6 +151,76 @@ class ImportService:
 
         return samples
 
+    def _build_metric_samples(
+        self,
+        raw: dict,
+        user_id: str,
+    ) -> list[TimeSeriesSampleCreate]:
+        """Parse data.metrics[] from Health Auto Export and return TimeSeriesSampleCreate objects."""
+        root = RootJSON(**raw)
+        metrics_raw = root.data.get("metrics", [])
+        user_uuid = UUID(user_id)
+        samples: list[TimeSeriesSampleCreate] = []
+
+        for m in metrics_raw:
+            metric = MetricJSON(**m)
+            metric_name = metric.name.lower().replace(" ", "_")
+
+            # Handle blood pressure (compound metric → two series)
+            if metric_name == AE_BLOOD_PRESSURE_NAME:
+                for dp in metric.data:
+                    if dp.systolic is not None:
+                        samples.append(
+                            TimeSeriesSampleCreate(
+                                id=uuid4(),
+                                user_id=user_uuid,
+                                source="apple_health_auto_export",
+                                device_model=dp.source or "Apple Watch",
+                                recorded_at=self._dt(dp.date),
+                                value=self._dec(dp.systolic) or 0,
+                                series_type=SeriesType.blood_pressure_systolic,
+                            )
+                        )
+                    if dp.diastolic is not None:
+                        samples.append(
+                            TimeSeriesSampleCreate(
+                                id=uuid4(),
+                                user_id=user_uuid,
+                                source="apple_health_auto_export",
+                                device_model=dp.source or "Apple Watch",
+                                recorded_at=self._dt(dp.date),
+                                value=self._dec(dp.diastolic) or 0,
+                                series_type=SeriesType.blood_pressure_diastolic,
+                            )
+                        )
+                continue
+
+            series_type = AE_METRIC_TO_SERIES_TYPE.get(metric_name)
+            if series_type is None:
+                continue  # Skip unsupported metrics
+
+            for dp in metric.data:
+                # Resolve the numeric value: qty for standard, Avg for HR aggregates
+                value = dp.qty
+                if value is None:
+                    value = dp.avg or dp.max or dp.min
+                if value is None:
+                    continue  # Skip entries without a numeric value
+
+                samples.append(
+                    TimeSeriesSampleCreate(
+                        id=uuid4(),
+                        user_id=user_uuid,
+                        source="apple_health_auto_export",
+                        device_model=dp.source or "Apple Watch",
+                        recorded_at=self._dt(dp.date),
+                        value=self._dec(value) or 0,
+                        series_type=series_type,
+                    )
+                )
+
+        return samples
+
     def _build_import_bundles(
         self,
         raw: dict,
@@ -147,7 +280,7 @@ class ImportService:
         Load data into database and return counts of saved items.
 
         Returns:
-            dict with counts: {"workouts_saved": int, "records_saved": int, "sleep_saved": int}
+            dict with counts: {"workouts_saved": int, "records_saved": int, "metrics_saved": int, "sleep_saved": int}
         """
         workouts_saved = 0
         records_saved = 0
@@ -168,13 +301,21 @@ class ImportService:
             self.timeseries_service.bulk_create_samples(db_session, all_hr_samples)
             records_saved = len(all_hr_samples)
 
+        # Parse and insert daily metrics (HR, steps, HRV, SpO2, etc.)
+        metric_samples = self._build_metric_samples(raw, user_id)
+        metrics_saved = 0
+        if metric_samples:
+            self.timeseries_service.bulk_create_samples(db_session, metric_samples)
+            metrics_saved = len(metric_samples)
+
         # Commit all changes in one transaction
         db_session.commit()
 
         return {
             "workouts_saved": workouts_saved,
             "records_saved": records_saved,
-            "sleep_saved": 0,  # Auto Export doesn't have sleep data
+            "metrics_saved": metrics_saved,
+            "sleep_saved": 0,
         }
 
     @handle_exceptions
@@ -208,6 +349,7 @@ class ImportService:
             # Extract incoming counts for logging
             data_section = data.get("data", {})
             incoming_workouts = len(data_section.get("workouts", []))
+            incoming_metrics = len(data_section.get("metrics", []))
 
             # Load data and get saved counts
             saved_counts = self.load_data(db_session, data, user_id=user_id, batch_id=batch_id)
@@ -222,9 +364,10 @@ class ImportService:
                 batch_id=batch_id,
                 user_id=user_id,
                 incoming_workouts=incoming_workouts,
+                incoming_metrics=incoming_metrics,
                 workouts_saved=saved_counts["workouts_saved"],
                 records_saved=saved_counts["records_saved"],
-                sleep_saved=0,  # Auto Export doesn't have sleep data
+                metrics_saved=saved_counts["metrics_saved"],
             )
 
         except Exception as e:

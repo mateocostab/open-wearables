@@ -33,6 +33,29 @@ class ActiveEnergyEntryJSON(BaseModel):
     source: str | None = None
 
 
+class MetricDataPointJSON(BaseModel):
+    date: str
+    qty: float | int | None = None
+    # Heart rate aggregated entries
+    avg: float | None = Field(default=None, alias="Avg")
+    min: float | None = Field(default=None, alias="Min")
+    max: float | None = Field(default=None, alias="Max")
+    # Blood pressure
+    systolic: float | None = None
+    diastolic: float | None = None
+    # Sleep analysis
+    value: str | None = None
+    startDate: str | None = None
+    endDate: str | None = None
+    source: str | None = None
+
+
+class MetricJSON(BaseModel):
+    name: str
+    units: str | None = None
+    data: list[MetricDataPointJSON] = []
+
+
 class WorkoutJSON(BaseModel):
     id: str | None = None
     name: str | None = None

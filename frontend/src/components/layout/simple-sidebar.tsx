@@ -1,11 +1,8 @@
 import { Link, useLocation } from '@tanstack/react-router';
 import {
   Home,
-  Users,
-  FileText,
   LogOut,
   Settings,
-  ExternalLink,
 } from 'lucide-react';
 import logotype from '@/logotype.svg';
 import { cn } from '@/lib/utils';
@@ -20,20 +17,9 @@ const menuItems = [
     icon: Home,
   },
   {
-    title: 'Users',
-    url: ROUTES.users,
-    icon: Users,
-  },
-  {
     title: 'Settings',
     url: ROUTES.settings,
     icon: Settings,
-  },
-  {
-    title: 'Documentation',
-    url: 'https://docs.openwearables.io/',
-    icon: FileText,
-    external: true,
   },
 ];
 
@@ -52,22 +38,6 @@ export function SimpleSidebar() {
       <nav className="flex-1 p-3 space-y-1">
         {menuItems.map((item) => {
           const isActive = location.pathname.startsWith(item.url);
-
-          if (item.external) {
-            return (
-              <a
-                key={item.title}
-                href={item.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-zinc-400 hover:bg-zinc-900/50 hover:text-zinc-200 transition-all duration-200"
-              >
-                <item.icon className="h-4 w-4 text-zinc-500" />
-                <span>{item.title}</span>
-                <ExternalLink className="ml-auto h-3 w-3 text-zinc-600" />
-              </a>
-            );
-          }
 
           return (
             <Link
