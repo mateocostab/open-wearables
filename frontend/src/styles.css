@@ -304,6 +304,114 @@
 }
 
 /* ============================================
+   HEALTHOS DESIGN SYSTEM EXTENSIONS
+   ============================================ */
+
+@layer utilities {
+  .glass-panel {
+    background: rgba(13, 17, 23, 0.6);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(0, 229, 255, 0.08);
+    border-radius: var(--radius);
+    box-shadow: 0 0 20px rgba(0, 229, 255, 0.03);
+  }
+
+  .glass-panel-hover:hover {
+    border-color: rgba(0, 229, 255, 0.15);
+    box-shadow: 0 0 30px rgba(0, 229, 255, 0.06);
+  }
+
+  .scan-lines {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .scan-lines::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 229, 255, 0.015) 2px,
+      rgba(0, 229, 255, 0.015) 4px
+    );
+    pointer-events: none;
+    z-index: 1;
+  }
+}
+
+/* Scan sweep animation */
+@keyframes scan-sweep {
+  0% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
+
+.animate-scan-sweep {
+  animation: scan-sweep 3s ease-in-out infinite;
+}
+
+/* Ring fill animation */
+@keyframes ring-fill {
+  from {
+    stroke-dashoffset: var(--ring-circumference, 283);
+  }
+  to {
+    stroke-dashoffset: var(--ring-offset, 0);
+  }
+}
+
+.animate-ring-fill {
+  animation: ring-fill 1.5s ease-out forwards;
+}
+
+/* Staggered fade-in */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.5s ease-out forwards;
+  opacity: 0;
+}
+
+/* Pulse dot for SCAN ACTIVE */
+@keyframes pulse-dot {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.5);
+  }
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* ============================================
    SCROLLBAR STYLING (Optional but nice)
    ============================================ */
 

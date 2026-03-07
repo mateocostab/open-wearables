@@ -77,6 +77,8 @@ export const queryKeys = {
       [...queryKeys.health.all, 'activitySummaries', userId, params] as const,
     bodySummary: (userId: string, params?: unknown) =>
       [...queryKeys.health.all, 'bodySummary', userId, params] as const,
+    recoverySummaries: (userId: string, params?: unknown) =>
+      [...queryKeys.health.all, 'recoverySummaries', userId, params] as const,
     activity: (userId: string, days: number) =>
       [...queryKeys.health.all, 'activity', userId, days] as const,
     summary: (userId: string, period?: string) =>
@@ -132,6 +134,8 @@ export const queryKeys = {
     deviceTypes: () => [...queryKeys.priorities.all, 'deviceTypes'] as const,
     dataSources: (userId: string) =>
       [...queryKeys.priorities.all, 'dataSources', userId] as const,
+    coverage: (userId: string) =>
+      [...queryKeys.priorities.all, 'coverage', userId] as const,
   },
 
   developers: {
