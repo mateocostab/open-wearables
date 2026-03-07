@@ -12,10 +12,8 @@ from app.repositories.data_point_series_repository import (
     DataPointSeriesRepository,
     IntensityMinutesResult,
 )
-from app.repositories.device_type_priority_repository import DeviceTypePriorityRepository
 from app.repositories.user_repository import UserRepository
 from app.schemas.common_types import PaginatedResponse, Pagination, SourceMetadata, TimeseriesMetadata
-from app.schemas.device_type import infer_device_type_from_model
 from app.schemas.oauth import ProviderName
 from app.schemas.series_types import SeriesType
 from app.schemas.summaries import (
@@ -94,7 +92,7 @@ class SummariesService:
         """Filter results to highest priority source per date.
 
         Args:
-            results: List of dicts with date, source (provider), device_model
+            results: List of dicts with date and source (provider)
             date_key: Key name for date field (activity_date or sleep_date)
 
         Returns:
@@ -104,7 +102,6 @@ class SummariesService:
             return results
 
         provider_order = ProviderPriorityRepository(ProviderPriority).get_priority_order(db_session)
-        device_type_order = DeviceTypePriorityRepository().get_priority_order(db_session)
 
         # Group results by date
         by_date: dict[date, list[dict]] = {}
@@ -121,9 +118,8 @@ class SummariesService:
                 filtered.append(entries[0])
                 continue
 
-            # Sort by priority
-            def sort_key(entry: dict) -> tuple[int, int, str]:
-                # Parse provider
+            # Sort by provider priority
+            def sort_key(entry: dict) -> tuple[int, str]:
                 source = entry.get("source", "unknown")
                 try:
                     provider = ProviderName(source)
@@ -131,15 +127,7 @@ class SummariesService:
                     provider = ProviderName.UNKNOWN
 
                 provider_priority = provider_order.get(provider, 99)
-
-                # Parse device type
-                device_model = entry.get("device_model")
-                device_type_priority = 99
-                if device_model:
-                    device_type = infer_device_type_from_model(device_model)
-                    device_type_priority = device_type_order.get(device_type, 99)
-
-                return (provider_priority, device_type_priority, device_model or "")
+                return (provider_priority, source or "")
 
             entries_sorted = sorted(entries, key=sort_key)
             filtered.append(entries_sorted[0])
@@ -335,10 +323,10 @@ class SummariesService:
             db_session, user_id, start_date, end_date
         )
 
-        # Build lookup dict for workout data by (date, provider, device)
+        # Build lookup dict for workout data by (date, provider)
         workout_lookup: dict[tuple, dict] = {}
         for wa in workout_aggregates:
-            key = (wa["workout_date"], wa["source"], wa.get("device_model"))
+            key = (wa["workout_date"], wa["source"])
             workout_lookup[key] = wa
 
         # Get active/sedentary minutes from step data
@@ -349,7 +337,7 @@ class SummariesService:
         # Build lookup for activity minutes
         activity_lookup: dict[tuple, ActiveMinutesResult] = {}
         for am in activity_minutes:
-            key = (am["activity_date"], am["source"], am.get("device_model"))
+            key = (am["activity_date"], am["source"])
             activity_lookup[key] = am
 
         # Get intensity minutes from HR data
@@ -370,50 +358,36 @@ class SummariesService:
         # Build lookup for intensity minutes
         intensity_lookup: dict[tuple, IntensityMinutesResult] = {}
         for im in intensity_minutes_data:
-            key = (im["activity_date"], im["source"], im.get("device_model"))
+            key = (im["activity_date"], im["source"])
             intensity_lookup[key] = im
 
         # Sort results based on sort_order (default ascending from DB)
         if sort_order == "desc":
             results = list(reversed(results))
 
-        # Apply cursor-based pagination using compound key (date, provider, device)
-        # This ensures we don't skip records when multiple providers exist for the same date
+        # Apply cursor-based pagination using compound key (date, provider)
         if cursor:
-            cursor_date, cursor_provider, cursor_device, direction = decode_activity_cursor(cursor)
-            cursor_key = (cursor_date, cursor_provider, cursor_device or "")
+            cursor_date, cursor_provider, _cursor_device, direction = decode_activity_cursor(cursor)
+            cursor_key = (cursor_date, cursor_provider)
 
             if direction == "prev":
-                # Backward pagination: get items BEFORE cursor key (in current sort order)
                 if sort_order == "desc":
-                    # In desc order, "before" means items with GREATER keys
                     results = [
-                        r
-                        for r in results
-                        if (r["activity_date"], r["source"] or "", r.get("device_model") or "") > cursor_key
+                        r for r in results if (r["activity_date"], r["source"] or "") > cursor_key
                     ]
                 else:
                     results = [
-                        r
-                        for r in results
-                        if (r["activity_date"], r["source"] or "", r.get("device_model") or "") < cursor_key
+                        r for r in results if (r["activity_date"], r["source"] or "") < cursor_key
                     ]
-                # Reverse to get correct order for backward pagination
                 results = list(reversed(results))
             else:
-                # Forward pagination: get items AFTER cursor key (in current sort order)
                 if sort_order == "desc":
-                    # In desc order, "after" means items with SMALLER keys
                     results = [
-                        r
-                        for r in results
-                        if (r["activity_date"], r["source"] or "", r.get("device_model") or "") < cursor_key
+                        r for r in results if (r["activity_date"], r["source"] or "") < cursor_key
                     ]
                 else:
                     results = [
-                        r
-                        for r in results
-                        if (r["activity_date"], r["source"] or "", r.get("device_model") or "") > cursor_key
+                        r for r in results if (r["activity_date"], r["source"] or "") > cursor_key
                     ]
 
         # Check for more data
@@ -430,21 +404,21 @@ class SummariesService:
             if has_more:
                 last = results[-1]
                 next_cursor = encode_activity_cursor(
-                    last["activity_date"], last["source"] or "unknown", last.get("device_model"), "next"
+                    last["activity_date"], last["source"] or "unknown", None, "next"
                 )
 
             # Previous cursor if we had a cursor (not first page)
             if cursor:
                 first = results[0]
                 previous_cursor = encode_activity_cursor(
-                    first["activity_date"], first["source"] or "unknown", first.get("device_model"), "prev"
+                    first["activity_date"], first["source"] or "unknown", None, "prev"
                 )
 
         # Transform to schema
         data = []
         for result in results:
-            # Look up workout data for this day/provider/device
-            result_key = (result["activity_date"], result["source"], result.get("device_model"))
+            # Look up workout data for this day/provider
+            result_key = (result["activity_date"], result["source"])
             workout_data = workout_lookup.get(result_key, {})
             activity_data = activity_lookup.get(result_key, {})
             intensity_data = intensity_lookup.get(result_key, {})
@@ -504,7 +478,7 @@ class SummariesService:
             steps = result.get("steps_sum")
             summary = ActivitySummary(
                 date=result["activity_date"],
-                source=SourceMetadata(provider=result["source"] or "unknown", device=result.get("device_model")),
+                source=SourceMetadata(provider=result["source"] or "unknown", device=None),
                 steps=steps if steps is not None else None,
                 distance_meters=total_distance,
                 floors_climbed=floors_climbed,

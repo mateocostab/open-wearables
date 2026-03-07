@@ -24,7 +24,6 @@ class ActivityAggregateResult(TypedDict):
 
     activity_date: date
     source: str | None
-    device_model: str | None
     steps_sum: int
     active_energy_sum: float
     basal_energy_sum: float
@@ -40,7 +39,6 @@ class ActiveMinutesResult(TypedDict):
 
     activity_date: date
     source: str | None
-    device_model: str | None
     active_minutes: int
     tracked_minutes: int
     sedentary_minutes: int
@@ -51,7 +49,6 @@ class IntensityMinutesResult(TypedDict):
 
     activity_date: date
     source: str | None
-    device_model: str | None
     light_minutes: int
     moderate_minutes: int
     vigorous_minutes: int

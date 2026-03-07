@@ -421,11 +421,13 @@ class DataPointSeriesRepository(
         flights_id = get_series_type_id(SeriesType.flights_climbed)
 
         # Build aggregation query
+        # NOTE: Groups by (date, source) only — merges data across devices within
+        # the same source. This is critical for providers like Apple Health Auto Export
+        # where steps come from iPhone and energy/HR from Apple Watch.
         results = (
             db_session.query(
                 cast(self.model.recorded_at, Date).label("activity_date"),
                 DataSource.source.label("source"),
-                DataSource.device_model.label("device_model"),
                 # Steps - sum for the day
                 func.sum(case((self.model.series_type_definition_id == steps_id, self.model.value), else_=0)).label(
                     "steps_sum"
@@ -469,7 +471,6 @@ class DataPointSeriesRepository(
             .group_by(
                 cast(self.model.recorded_at, Date),
                 DataSource.source,
-                DataSource.device_model,
             )
             .order_by(asc(cast(self.model.recorded_at, Date)))
             .all()
@@ -482,7 +483,6 @@ class DataPointSeriesRepository(
                 {
                     "activity_date": row.activity_date,
                     "source": row.source,
-                    "device_model": row.device_model,
                     "steps_sum": int(row.steps_sum) if row.steps_sum else 0,
                     "active_energy_sum": float(row.active_energy_sum) if row.active_energy_sum else 0.0,
                     "basal_energy_sum": float(row.basal_energy_sum) if row.basal_energy_sum else 0.0,
@@ -525,11 +525,11 @@ class DataPointSeriesRepository(
         minute_trunc = func.date_trunc(literal_column("'minute'"), self.model.recorded_at)
 
         # Subquery: bucket step data by minute and sum steps per minute
+        # Groups by (date, source, minute) — merges devices within same source
         minute_bucket = (
             db_session.query(
                 cast(self.model.recorded_at, Date).label("activity_date"),
                 DataSource.source,
-                DataSource.device_model,
                 minute_trunc.label("minute_bucket"),
                 func.sum(self.model.value).label("steps_in_minute"),
             )
@@ -543,7 +543,6 @@ class DataPointSeriesRepository(
             .group_by(
                 cast(self.model.recorded_at, Date),
                 DataSource.source,
-                DataSource.device_model,
                 minute_trunc,
             )
             .subquery()
@@ -554,7 +553,6 @@ class DataPointSeriesRepository(
             db_session.query(
                 minute_bucket.c.activity_date,
                 minute_bucket.c.source,
-                minute_bucket.c.device_model,
                 # Count minutes where steps >= threshold (active)
                 func.sum(case((minute_bucket.c.steps_in_minute >= active_threshold, 1), else_=0)).label(
                     "active_minutes"
@@ -565,7 +563,6 @@ class DataPointSeriesRepository(
             .group_by(
                 minute_bucket.c.activity_date,
                 minute_bucket.c.source,
-                minute_bucket.c.device_model,
             )
             .order_by(asc(minute_bucket.c.activity_date))
             .all()
@@ -581,7 +578,6 @@ class DataPointSeriesRepository(
                 {
                     "activity_date": row.activity_date,
                     "source": row.source,
-                    "device_model": row.device_model,
                     "active_minutes": active,
                     "tracked_minutes": tracked,
                     "sedentary_minutes": sedentary,
@@ -621,11 +617,11 @@ class DataPointSeriesRepository(
         minute_trunc = func.date_trunc(literal_column("'minute'"), self.model.recorded_at)
 
         # Subquery: bucket HR data by minute and get avg HR per minute
+        # Groups by (date, source, minute) — merges devices within same source
         minute_bucket = (
             db_session.query(
                 cast(self.model.recorded_at, Date).label("activity_date"),
                 DataSource.source,
-                DataSource.device_model,
                 minute_trunc.label("minute_bucket"),
                 func.avg(self.model.value).label("avg_hr_in_minute"),
             )
@@ -639,7 +635,6 @@ class DataPointSeriesRepository(
             .group_by(
                 cast(self.model.recorded_at, Date),
                 DataSource.source,
-                DataSource.device_model,
                 minute_trunc,
             )
             .subquery()
@@ -650,7 +645,6 @@ class DataPointSeriesRepository(
             db_session.query(
                 minute_bucket.c.activity_date,
                 minute_bucket.c.source,
-                minute_bucket.c.device_model,
                 # Light: 50-63% of max HR
                 func.sum(
                     case(
@@ -688,7 +682,6 @@ class DataPointSeriesRepository(
             .group_by(
                 minute_bucket.c.activity_date,
                 minute_bucket.c.source,
-                minute_bucket.c.device_model,
             )
             .order_by(asc(minute_bucket.c.activity_date))
             .all()
@@ -700,7 +693,6 @@ class DataPointSeriesRepository(
                 {
                     "activity_date": row.activity_date,
                     "source": row.source,
-                    "device_model": row.device_model,
                     "light_minutes": int(row.light_minutes) if row.light_minutes else 0,
                     "moderate_minutes": int(row.moderate_minutes) if row.moderate_minutes else 0,
                     "vigorous_minutes": int(row.vigorous_minutes) if row.vigorous_minutes else 0,
