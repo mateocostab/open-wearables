@@ -7,7 +7,7 @@ import { ActivitySection } from '@/components/user/activity-section';
 import { SleepSection } from '@/components/user/sleep-section';
 import { WorkoutSection } from '@/components/user/workout-section';
 import { BodySection } from '@/components/user/body-section';
-import { RecoverySection } from '@/components/user/recovery-section';
+import { HeartSection } from '@/components/user/heart-section';
 import { ROUTES } from '@/lib/constants/routes';
 import type { DateRangeValue } from '@/components/ui/date-range-selector';
 
@@ -32,6 +32,7 @@ function DashboardPage() {
   const [activityDateRange, setActivityDateRange] = useState<DateRangeValue>(30);
   const [sleepDateRange, setSleepDateRange] = useState<DateRangeValue>(30);
   const [workoutDateRange, setWorkoutDateRange] = useState<DateRangeValue>(30);
+  const [heartDateRange, setHeartDateRange] = useState<DateRangeValue>(30);
   const [activityDeviceFilter, setActivityDeviceFilter] = useState<string | null>(null);
   const [sleepDeviceFilter, setSleepDeviceFilter] = useState<string | null>(null);
 
@@ -79,7 +80,13 @@ function DashboardPage() {
   return (
     <div className="p-6 md:p-8">
       {activeSection === 'overview' && <CommandCenterLayout userId={userId} />}
-      {activeSection === 'recovery' && <RecoverySection userId={userId} />}
+      {activeSection === 'heart' && (
+        <HeartSection
+          userId={userId}
+          dateRange={heartDateRange}
+          onDateRangeChange={setHeartDateRange}
+        />
+      )}
       {activeSection === 'activity' && (
         <ActivitySection
           userId={userId}

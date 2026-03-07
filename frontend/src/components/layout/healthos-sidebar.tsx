@@ -27,7 +27,7 @@ interface HealthOSSidebarProps {
 
 const dashboardItems = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-  { id: 'recovery', label: 'Recovery & HRV', icon: HeartPulse },
+  { id: 'heart', label: 'Heart', icon: HeartPulse },
   { id: 'activity', label: 'Activity', icon: Activity },
   { id: 'sleep', label: 'Sleep', icon: Moon },
   { id: 'workouts', label: 'Workouts', icon: Dumbbell },

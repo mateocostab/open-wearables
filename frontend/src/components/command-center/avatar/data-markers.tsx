@@ -27,17 +27,20 @@ function MarkerLabel({
   color: string;
 }) {
   return (
-    <div className="pointer-events-none select-none rounded-md bg-black/80 px-2 py-1 backdrop-blur-sm">
-      <div className="flex items-center gap-1.5">
+    <div
+      className="pointer-events-none select-none whitespace-nowrap rounded bg-black/80 px-1.5 py-0.5 backdrop-blur-sm border border-white/5"
+      style={{ fontSize: '9px' }}
+    >
+      <div className="flex items-center gap-1">
         <span
-          className="inline-block h-1.5 w-1.5 rounded-full"
+          className="inline-block h-1 w-1 rounded-full"
           style={{ backgroundColor: color }}
         />
-        <span className="text-[10px] font-medium text-white/70">
-          {label}
-        </span>
+        <span className="font-medium text-white/60">{label}</span>
       </div>
-      <span className="text-xs font-semibold text-white">{value}</span>
+      <span className="font-bold text-white" style={{ fontSize: '10px' }}>
+        {value}
+      </span>
     </div>
   );
 }
@@ -58,25 +61,24 @@ export function DataMarkers({
 
     markers.push({
       label: 'Heart',
-      value: parts.join(' / '),
+      value: parts.join(' · '),
       color: '#EF4444',
-      bodyAnchor: [-0.3, 1.0, 0.3],
-      labelOffset: [-1.0, 1.0, 0.3],
+      bodyAnchor: [-0.2, 0.5, 0.2],
+      labelOffset: [-1.2, 0.5, 0.2],
     });
   }
 
   if (recoveryScore != null || sleepHours != null) {
     const parts: string[] = [];
     if (recoveryScore != null) parts.push(`${recoveryScore}%`);
-    if (sleepHours != null)
-      parts.push(`${sleepHours.toFixed(1)}h sleep`);
+    if (sleepHours != null) parts.push(`${sleepHours.toFixed(1)}h`);
 
     markers.push({
       label: 'Recovery',
-      value: parts.join(' / '),
+      value: parts.join(' · '),
       color: '#A78BFA',
-      bodyAnchor: [0.3, 1.9, 0],
-      labelOffset: [1.0, 2.1, 0],
+      bodyAnchor: [0.2, 1.5, 0],
+      labelOffset: [1.2, 1.6, 0],
     });
   }
 
@@ -85,8 +87,8 @@ export function DataMarkers({
       label: 'Activity',
       value: `${activeCalories} kcal`,
       color: '#34D399',
-      bodyAnchor: [0.7, 0.9, 0],
-      labelOffset: [1.3, 0.9, 0],
+      bodyAnchor: [0.4, 0.0, 0],
+      labelOffset: [1.2, 0.0, 0],
     });
   }
 
@@ -99,13 +101,13 @@ export function DataMarkers({
             color={marker.color}
             lineWidth={1}
             transparent
-            opacity={0.5}
+            opacity={0.4}
           />
-
           <Html
             position={marker.labelOffset}
-            distanceFactor={8}
+            distanceFactor={4}
             zIndexRange={[10, 0]}
+            center
           >
             <MarkerLabel
               label={marker.label}

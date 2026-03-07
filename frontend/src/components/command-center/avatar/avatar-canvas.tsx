@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
+import { OrbitControls } from '@react-three/drei';
 import { WireframeBody } from './wireframe-body';
 import { DataMarkers } from './data-markers';
 
@@ -21,14 +22,15 @@ export function AvatarCanvas({
   return (
     <div className="relative h-full min-h-[400px] w-full">
       <Canvas
-        camera={{ position: [0, 0.8, 3.5], fov: 45 }}
+        camera={{ position: [0, 1, 5], fov: 40 }}
         frameloop="always"
         dpr={[1, 1.5]}
         style={{ background: 'transparent' }}
         gl={{ alpha: true, antialias: true }}
       >
         <Suspense fallback={null}>
-          <ambientLight intensity={0.5} />
+          <ambientLight intensity={0.6} />
+          <pointLight position={[5, 5, 5]} intensity={0.3} />
           <WireframeBody />
           <DataMarkers
             restingHr={restingHr}
@@ -36,6 +38,13 @@ export function AvatarCanvas({
             recoveryScore={recoveryScore}
             sleepHours={sleepHours}
             activeCalories={activeCalories}
+          />
+          <OrbitControls
+            enableZoom={false}
+            enablePan={false}
+            autoRotate={false}
+            minPolarAngle={Math.PI * 0.3}
+            maxPolarAngle={Math.PI * 0.7}
           />
         </Suspense>
       </Canvas>
