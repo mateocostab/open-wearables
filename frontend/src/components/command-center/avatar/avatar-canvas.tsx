@@ -3,6 +3,8 @@ import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { WireframeBody } from './wireframe-body';
 import { DataMarkers } from './data-markers';
+import { ScanPlane } from './scan-plane';
+import { FloatingParticles } from './floating-particles';
 
 interface AvatarCanvasProps {
   restingHr?: number | null;
@@ -22,7 +24,7 @@ export function AvatarCanvas({
   return (
     <div className="relative h-full min-h-[400px] w-full">
       <Canvas
-        camera={{ position: [0, 1, 5], fov: 40 }}
+        camera={{ position: [0, 0.8, 4.5], fov: 45 }}
         frameloop="always"
         dpr={[1, 1.5]}
         style={{ background: 'transparent' }}
@@ -31,7 +33,10 @@ export function AvatarCanvas({
         <Suspense fallback={null}>
           <ambientLight intensity={0.6} />
           <pointLight position={[5, 5, 5]} intensity={0.3} />
+          <pointLight position={[-3, 2, -3]} intensity={0.15} color="#00E5FF" />
           <WireframeBody />
+          <ScanPlane />
+          <FloatingParticles />
           <DataMarkers
             restingHr={restingHr}
             hrv={hrv}

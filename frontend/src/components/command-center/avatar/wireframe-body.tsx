@@ -3,13 +3,24 @@ import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 
+// Target height in scene units — tweak this to fill the viewport
+const TARGET_HEIGHT = 3.2;
+// Rotation speed (radians per frame at 60fps)
+const ROTATION_SPEED = 0.005;
+
 export function WireframeBody() {
   const groupRef = useRef<THREE.Group>(null);
+  const glowRef = useRef<THREE.MeshBasicMaterial>(null);
   const { scene } = useGLTF('/models/human-body.glb');
 
-  useFrame(() => {
+  // Rotate on own axis + pulsing glow
+  useFrame(({ clock }) => {
     if (groupRef.current) {
-      groupRef.current.rotation.y += 0.003;
+      groupRef.current.rotation.y += ROTATION_SPEED;
+    }
+    if (glowRef.current) {
+      const t = clock.getElapsedTime();
+      glowRef.current.opacity = 0.04 + Math.sin(t * 1.5) * 0.03;
     }
   });
 
@@ -35,7 +46,7 @@ export function WireframeBody() {
     []
   );
 
-  // Clone and apply materials
+  // Clone, apply materials, compute bounding box
   const { wireScene, glowScene, scale, center } = useMemo(() => {
     const wClone = scene.clone(true);
     wClone.traverse((child) => {
@@ -51,34 +62,53 @@ export function WireframeBody() {
       }
     });
 
-    // Calculate bounding box to auto-fit
+    // Compute bounding box to auto-center and scale
     const box = new THREE.Box3().setFromObject(wClone);
     const size = box.getSize(new THREE.Vector3());
     const c = box.getCenter(new THREE.Vector3());
-    const maxDim = Math.max(size.x, size.y, size.z);
-    // Target: fit the model in ~3.5 units tall
-    const s = 3.5 / maxDim;
+
+    // Scale so the model's height == TARGET_HEIGHT
+    const s = TARGET_HEIGHT / size.y;
 
     return { wireScene: wClone, glowScene: gClone, scale: s, center: c };
   }, [scene, wireframeMaterial, glowMaterial]);
+
+  // Position offsets: center the model at world origin
+  const offsetX = -center.x * scale;
+  const offsetY = -center.y * scale;
+  const offsetZ = -center.z * scale;
+  // Bottom of model in world space
+  const baseY = offsetY - TARGET_HEIGHT / 2;
 
   return (
     <group ref={groupRef}>
       <group
         scale={[scale, scale, scale]}
-        position={[-center.x * scale, -center.y * scale, -center.z * scale]}
+        position={[offsetX, offsetY, offsetZ]}
       >
         <primitive object={wireScene} />
         <primitive object={glowScene} />
       </group>
 
-      {/* Base ring */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.75, 0]}>
-        <ringGeometry args={[0.6, 0.63, 64]} />
+      {/* Glowing base ring at feet */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, baseY, 0]}>
+        <ringGeometry args={[0.55, 0.58, 64]} />
         <meshBasicMaterial
+          ref={glowRef}
           color="#00E5FF"
           transparent
           opacity={0.25}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+
+      {/* Subtle base disc */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, baseY - 0.01, 0]}>
+        <circleGeometry args={[0.55, 64]} />
+        <meshBasicMaterial
+          color="#00E5FF"
+          transparent
+          opacity={0.03}
           side={THREE.DoubleSide}
         />
       </mesh>

@@ -1,4 +1,4 @@
-import { Sparkles } from 'lucide-react';
+import { Sparkles, HeartPulse, Moon, Zap, type LucideIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { useHealthSignals } from '@/hooks/use-health-signals';
 import { calculateHealthScore } from '@/lib/utils/health-score';
@@ -8,11 +8,11 @@ interface HealthScoreProps {
   userId: string;
 }
 
-const SEGMENTS = [
-  { key: 'recovery', label: 'Recovery', icon: '💚', color: '#00FF7F' },
-  { key: 'sleep', label: 'Sleep', icon: '🌙', color: '#818CF8' },
-  { key: 'activity', label: 'Activity', icon: '⚡', color: '#FBBF24' },
-] as const;
+const SEGMENTS: readonly { key: string; label: string; icon: LucideIcon; color: string }[] = [
+  { key: 'recovery', label: 'Recovery', icon: HeartPulse, color: '#00FF7F' },
+  { key: 'sleep', label: 'Sleep', icon: Moon, color: '#818CF8' },
+  { key: 'activity', label: 'Activity', icon: Zap, color: '#FBBF24' },
+];
 
 const RADIUS = 70;
 const STROKE_WIDTH = 10;
@@ -110,9 +110,10 @@ export function HealthScore({ userId }: HealthScoreProps) {
         <div className="flex-1 space-y-3">
           {SEGMENTS.map((segment) => {
             const subScore = scores[segment.key as keyof typeof scores] as number;
+            const Icon = segment.icon;
             return (
               <div key={segment.key} className="flex items-center gap-3">
-                <span className="text-sm">{segment.icon}</span>
+                <Icon className="h-4 w-4 shrink-0" style={{ color: segment.color }} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs text-zinc-400">{segment.label}</span>

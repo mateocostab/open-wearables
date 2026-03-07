@@ -63,8 +63,8 @@ export function DataMarkers({
       label: 'Heart',
       value: parts.join(' · '),
       color: '#EF4444',
-      bodyAnchor: [-0.2, 0.5, 0.2],
-      labelOffset: [-1.2, 0.5, 0.2],
+      bodyAnchor: [-0.2, 0.3, 0.2],
+      labelOffset: [-1.4, 0.3, 0.2],
     });
   }
 
@@ -77,8 +77,8 @@ export function DataMarkers({
       label: 'Recovery',
       value: parts.join(' · '),
       color: '#A78BFA',
-      bodyAnchor: [0.2, 1.5, 0],
-      labelOffset: [1.2, 1.6, 0],
+      bodyAnchor: [0.2, 1.2, 0],
+      labelOffset: [1.4, 1.3, 0],
     });
   }
 
@@ -87,8 +87,8 @@ export function DataMarkers({
       label: 'Activity',
       value: `${activeCalories} kcal`,
       color: '#34D399',
-      bodyAnchor: [0.4, 0.0, 0],
-      labelOffset: [1.2, 0.0, 0],
+      bodyAnchor: [0.4, -0.5, 0],
+      labelOffset: [1.4, -0.5, 0],
     });
   }
 
