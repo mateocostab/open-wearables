@@ -1,3 +1,5 @@
+import { Sparkles } from 'lucide-react';
+import { format } from 'date-fns';
 import { useHealthSignals } from '@/hooks/use-health-signals';
 import { calculateHealthScore } from '@/lib/utils/health-score';
 import { NumberTicker } from '@/components/ui/number-ticker';
@@ -7,14 +9,15 @@ interface HealthScoreProps {
 }
 
 const SEGMENTS = [
-  { key: 'recovery', label: 'Recovery', color: '#00FF7F', weight: 0.4 },
-  { key: 'sleep', label: 'Sleep', color: '#818CF8', weight: 0.35 },
-  { key: 'activity', label: 'Activity', color: '#00E5FF', weight: 0.25 },
+  { key: 'recovery', label: 'Recovery', icon: '💚', color: '#00FF7F' },
+  { key: 'sleep', label: 'Sleep', icon: '🌙', color: '#818CF8' },
+  { key: 'activity', label: 'Activity', icon: '⚡', color: '#FBBF24' },
 ] as const;
 
-// SVG ring geometry
-const RADIUS = 52;
+const RADIUS = 70;
+const STROKE_WIDTH = 10;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+const GAP = 6;
 
 export function HealthScore({ userId }: HealthScoreProps) {
   const signals = useHealthSignals(userId);
@@ -26,107 +29,111 @@ export function HealthScore({ userId }: HealthScoreProps) {
     activeCalories: signals.activity.value,
   });
 
-  // Calculate arc segments
-  // Each segment occupies its weight proportion of the circle
-  const arcs = SEGMENTS.map((segment, index) => {
-    const segmentLength = CIRCUMFERENCE * segment.weight;
-    const gapSize = 4; // small gap between segments
-    const dashLength = segmentLength - gapSize;
+  // Calculate filled arc for the main ring
+  const mainProgress = scores.composite / 100;
+  const mainDashoffset = CIRCUMFERENCE * (1 - mainProgress);
 
-    // Calculate offset: sum of all previous segment lengths
-    let offset = 0;
-    for (let i = 0; i < index; i++) {
-      offset += CIRCUMFERENCE * SEGMENTS[i].weight;
-    }
-
-    // stroke-dashoffset is measured from the top (12 o'clock), going clockwise
-    // We rotate the starting point by -90deg in the SVG to start from the top
-    const dashoffset = CIRCUMFERENCE - offset;
-
-    return {
-      ...segment,
-      dashArray: `${dashLength} ${CIRCUMFERENCE - dashLength}`,
-      dashOffset: dashoffset,
-      subScore: scores[segment.key as keyof typeof scores] as number,
-    };
-  });
+  // Score color based on value
+  const scoreColor =
+    scores.composite >= 70
+      ? '#00FF7F'
+      : scores.composite >= 40
+        ? '#FBBF24'
+        : '#EF4444';
 
   return (
-    <div className="glass-panel p-4">
-      <p className="text-xs font-medium text-zinc-400 uppercase tracking-wider mb-4">
-        Health Score
-      </p>
+    <div className="glass-panel p-5">
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-cyan-400" />
+          <span className="text-sm font-semibold text-white">Health Score</span>
+        </div>
+        <span className="text-[11px] text-zinc-500 px-2 py-0.5 rounded bg-zinc-800/50">
+          {format(new Date(), 'yyyy-MM-dd')}
+        </span>
+      </div>
 
-      {/* Donut chart */}
-      <div className="flex justify-center mb-4">
-        <div className="relative">
-          <svg viewBox="0 0 120 120" width={120} height={120}>
-            {/* Background circle */}
+      <div className="flex items-center gap-6">
+        {/* Donut */}
+        <div className="relative shrink-0">
+          <svg viewBox="0 0 160 160" width={160} height={160}>
+            {/* Background ring */}
             <circle
-              cx={60}
-              cy={60}
+              cx={80}
+              cy={80}
               r={RADIUS}
               fill="none"
-              stroke="rgb(39 39 42)" // zinc-800
-              strokeWidth={8}
+              stroke="rgb(39 39 42)"
+              strokeWidth={STROKE_WIDTH}
             />
-
-            {/* Colored arc segments */}
-            {arcs.map((arc) => (
-              <circle
-                key={arc.key}
-                cx={60}
-                cy={60}
-                r={RADIUS}
-                fill="none"
-                stroke={arc.color}
-                strokeWidth={8}
-                strokeDasharray={arc.dashArray}
-                strokeDashoffset={arc.dashOffset}
-                strokeLinecap="round"
-                transform="rotate(-90 60 60)"
-                className="transition-all duration-1000"
-                opacity={0.85}
-              />
-            ))}
+            {/* Score arc */}
+            <circle
+              cx={80}
+              cy={80}
+              r={RADIUS}
+              fill="none"
+              stroke={scoreColor}
+              strokeWidth={STROKE_WIDTH}
+              strokeDasharray={CIRCUMFERENCE}
+              strokeDashoffset={mainDashoffset}
+              strokeLinecap="round"
+              transform="rotate(-90 80 80)"
+              className="transition-all duration-1000"
+              style={{ filter: `drop-shadow(0 0 6px ${scoreColor}40)` }}
+            />
           </svg>
 
-          {/* Center score */}
+          {/* Center label */}
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             {scores.composite > 0 ? (
               <>
                 <NumberTicker
                   value={scores.composite}
-                  className="text-2xl font-bold text-white"
+                  className="text-4xl font-bold text-white"
                 />
-                <span className="text-xs text-zinc-500">/ 100</span>
+                <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider mt-0.5">
+                  Health Score
+                </span>
               </>
             ) : (
               <>
-                <span className="text-2xl font-bold text-zinc-600">-</span>
-                <span className="text-xs text-zinc-600">/ 100</span>
+                <span className="text-4xl font-bold text-zinc-600">-</span>
+                <span className="text-[10px] text-zinc-600 uppercase tracking-wider mt-0.5">
+                  Health Score
+                </span>
               </>
             )}
           </div>
         </div>
-      </div>
 
-      {/* Legend */}
-      <div className="space-y-2">
-        {arcs.map((arc) => (
-          <div key={arc.key} className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div
-                className="h-2 w-2 rounded-full"
-                style={{ backgroundColor: arc.color }}
-              />
-              <span className="text-xs text-zinc-400">{arc.label}</span>
-            </div>
-            <span className="text-xs font-medium text-zinc-300 tabular-nums">
-              {arc.subScore}
-            </span>
-          </div>
-        ))}
+        {/* Sub-scores with progress bars */}
+        <div className="flex-1 space-y-3">
+          {SEGMENTS.map((segment) => {
+            const subScore = scores[segment.key as keyof typeof scores] as number;
+            return (
+              <div key={segment.key} className="flex items-center gap-3">
+                <span className="text-sm">{segment.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-zinc-400">{segment.label}</span>
+                    <span className="text-xs font-semibold text-zinc-200 tabular-nums">
+                      {subScore}
+                    </span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-700"
+                      style={{
+                        width: `${subScore}%`,
+                        backgroundColor: segment.color,
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
