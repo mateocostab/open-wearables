@@ -101,7 +101,7 @@ export function CommandCenterLayout({ userId }: CommandCenterLayoutProps) {
             </div>
 
             {/* Avatar container */}
-            <div className="relative h-[280px]">
+            <div className="relative h-[240px]">
               <Suspense fallback={<AvatarFallback />}>
                 <AvatarCanvas
                   restingHr={restingHr}

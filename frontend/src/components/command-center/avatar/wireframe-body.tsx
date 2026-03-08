@@ -65,23 +65,14 @@ export function WireframeBody() {
       <primitive object={wireScene} />
       <primitive object={glowScene} />
 
-      {/* Base ring at feet (Y ~ -1.47) */}
+      {/* Base ring at feet - positioned at Y=-1.5, at the Z center of model */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.5, -9]}>
-        <ringGeometry args={[2.5, 2.65, 64]} />
+        <ringGeometry args={[3.0, 3.2, 64]} />
         <meshBasicMaterial
           ref={glowRef}
           color="#00E5FF"
           transparent
-          opacity={0.2}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.51, -9]}>
-        <circleGeometry args={[2.5, 64]} />
-        <meshBasicMaterial
-          color="#00E5FF"
-          transparent
-          opacity={0.02}
+          opacity={0.15}
           side={THREE.DoubleSide}
         />
       </mesh>
