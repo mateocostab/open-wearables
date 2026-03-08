@@ -169,6 +169,13 @@ class ImportService:
         user_uuid = UUID(user_id)
         samples: list[TimeSeriesSampleCreate] = []
 
+        # Log all incoming metric names for debugging
+        metric_names = [MetricJSON(**m).name for m in metrics_raw]
+        log_structured(
+            self.log, "info", f"Auto Export metrics received: {metric_names}",
+            provider="apple", action="apple_ae_metric_names", user_id=user_id,
+        )
+
         for m in metrics_raw:
             metric = MetricJSON(**m)
             metric_name = metric.name.lower().replace(" ", "_")
