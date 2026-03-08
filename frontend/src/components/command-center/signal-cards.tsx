@@ -28,7 +28,7 @@ export function SignalCards({ signals }: SignalCardsProps) {
   const cards = [
     signals.sleep,
     signals.activity,
-    signals.recovery,
+    signals.strain,
     signals.hrv,
     signals.restingHr,
   ];

@@ -28,6 +28,7 @@ export interface HealthSignals {
   sleepEfficiency: HealthSignal;
   spo2: HealthSignal;
   respiratoryRate: HealthSignal;
+  strain: HealthSignal;
   isLoading: boolean;
 }
 
@@ -252,6 +253,30 @@ export function useHealthSignals(userId: string): HealthSignals {
         accentClass: 'text-violet-400',
         provider: sleepProvider,
       },
+      strain: (() => {
+        // Strain: derived from activity intensity (0-21 scale like Whoop)
+        // Compute from active calories + active minutes as a proxy
+        const strainValues = activitySummaries.map((a) => {
+          const cal = a.active_calories_kcal ?? 0;
+          const mins = a.active_minutes ?? 0;
+          // Rough strain formula: scale cal+mins to 0-21 range
+          // ~500 cal + 60 min = ~14 strain (moderate day)
+          return Math.min(21, (cal / 500) * 10 + (mins / 60) * 4);
+        });
+        const latestStrain = strainValues[0] ?? null;
+        const avgStrain = computeAvg(strainValues.map((v) => (v > 0 ? v : null)));
+        const activityProvider = activitySummaries[0]?.source?.provider ?? null;
+        return {
+          label: 'Strain',
+          value: latestStrain !== null && latestStrain > 0 ? Math.round(latestStrain * 10) / 10 : null,
+          unit: '',
+          avg14d: avgStrain !== null ? Math.round(avgStrain * 10) / 10 : null,
+          momentum: computeMomentum(latestStrain, strainValues.map((v) => (v > 0 ? v : null))),
+          color: '#F59E0B',
+          accentClass: 'text-amber-400',
+          provider: activityProvider,
+        };
+      })(),
     };
   }, [sleepData, activityData, recoveryData, bodySummary]);
 

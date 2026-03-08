@@ -31,7 +31,8 @@ import {
 
 export const providerDisplayNames: Record<string, string> = {
   'auto-health-export': "Mateo's Apple Watch Ultra 2",
-  'whoop': "Mateo's Whoop",
+  apple_health_auto_export: "Mateo's Apple Watch Ultra 2",
+  whoop: "Mateo's Whoop",
 };
 
 interface ConnectionCardProps {

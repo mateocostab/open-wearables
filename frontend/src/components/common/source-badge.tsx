@@ -29,6 +29,11 @@ const PROVIDER_STYLES: Record<
     text: 'text-zinc-300',
     label: 'Apple Health',
   },
+  apple_health_auto_export: {
+    bg: 'bg-zinc-400/20',
+    text: 'text-zinc-300',
+    label: 'Apple Health',
+  },
 };
 
 const DEFAULT_STYLE = { bg: 'bg-zinc-500/20', text: 'text-zinc-400' };
