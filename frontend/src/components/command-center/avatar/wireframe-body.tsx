@@ -1,7 +1,8 @@
 import { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { useGLTF, Center, Bounds } from '@react-three/drei';
+import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
+import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 
 const ROTATION_SPEED = 0.004;
 
@@ -31,11 +32,11 @@ function WireframeMesh() {
   );
 
   const { wireScene, glowScene } = useMemo(() => {
-    const wClone = scene.clone(true);
+    const wClone = SkeletonUtils.clone(scene);
     wClone.traverse((child) => {
       if (child instanceof THREE.Mesh) child.material = wireframeMaterial;
     });
-    const gClone = scene.clone(true);
+    const gClone = SkeletonUtils.clone(scene);
     gClone.traverse((child) => {
       if (child instanceof THREE.Mesh) child.material = glowMaterial;
     });
@@ -61,14 +62,13 @@ export function WireframeBody() {
 
   return (
     <group ref={groupRef}>
-      <Bounds fit clip observe margin={1.2}>
-        <Center>
-          <WireframeMesh />
-        </Center>
-      </Bounds>
+      {/* Manual transform: rotate +90° X to stand upright, scale to fit, center at origin */}
+      <group rotation={[Math.PI / 2, 0, 0]} scale={0.2} position={[0, -1.8, 0]}>
+        <WireframeMesh />
+      </group>
 
       {/* Base ring */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.6, 0]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.8, 0]}>
         <ringGeometry args={[0.8, 0.85, 64]} />
         <meshBasicMaterial
           color="#00E5FF"
