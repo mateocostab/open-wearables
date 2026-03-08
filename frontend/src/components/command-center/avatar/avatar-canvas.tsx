@@ -29,10 +29,10 @@ export function AvatarCanvas({
     <div className="relative h-full w-full">
       <Canvas
         camera={{
-          position: [0, 0.4, 6],
-          fov: 50,
+          position: [0, 0.4, 22],
+          fov: 30,
           near: 0.1,
-          far: 100,
+          far: 200,
         }}
         frameloop="always"
         dpr={[1, 1.5]}
