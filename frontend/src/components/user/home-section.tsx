@@ -171,7 +171,8 @@ function ActivityOverviewSection({
     sort_order: 'desc',
   });
 
-  const today = data?.data?.[0];
+  const entries = data?.data ?? [];
+  const today = entries[entries.length - 1] ?? null;
 
   return (
     <SectionContainer title="Today's Activity" onClick={onClick}>
@@ -235,7 +236,8 @@ function SleepOverviewSection({
     sort_order: 'desc',
   });
 
-  const lastNight = data?.data?.[0];
+  const sleepEntries = data?.data ?? [];
+  const lastNight = sleepEntries[sleepEntries.length - 1] ?? null;
   const stageData = getSleepStageData(lastNight?.stages);
 
   return (

@@ -94,32 +94,37 @@ export function useHealthSignals(userId: string): HealthSignals {
     const activitySummaries = activityData?.data ?? [];
     const recoverySummaries = recoveryData?.data ?? [];
 
-    // Sleep (convert minutes to hours)
+    // Sleep — endpoint may return asc order regardless of sort_order param,
+    // so use last entry (most recent) for "latest" values
+    const mostRecentSleep = sleepSummaries[sleepSummaries.length - 1];
     const sleepDurations = sleepSummaries.map((s) =>
       s.duration_minutes !== null ? s.duration_minutes / 60 : null
     );
-    const latestSleep = sleepDurations[0] ?? null;
+    const latestSleep = mostRecentSleep?.duration_minutes != null
+      ? mostRecentSleep.duration_minutes / 60
+      : null;
     const avgSleep = computeAvg(sleepDurations);
-    const sleepProvider = sleepSummaries[0]?.source?.provider ?? null;
+    const sleepProvider = mostRecentSleep?.source?.provider ?? null;
 
     // Sleep efficiency
     const sleepEfficiencies = sleepSummaries.map(
       (s) => s.efficiency_percent
     );
-    const latestEfficiency = sleepEfficiencies[0] ?? null;
+    const latestEfficiency = mostRecentSleep?.efficiency_percent ?? null;
     const avgEfficiency = computeAvg(sleepEfficiencies);
 
-    // Activity (calories)
+    // Activity — same asc-order fix, take last (most recent)
+    const mostRecentActivity = activitySummaries[activitySummaries.length - 1];
     const activeCals = activitySummaries.map(
       (a) => a.active_calories_kcal
     );
-    const latestActivity = activeCals[0] ?? null;
+    const latestActivity = mostRecentActivity?.active_calories_kcal ?? null;
     const avgActivity = computeAvg(activeCals);
-    const activityProvider = activitySummaries[0]?.source?.provider ?? null;
+    const activityProvider = mostRecentActivity?.source?.provider ?? null;
 
     // Steps
     const stepValues = activitySummaries.map((a) => a.steps);
-    const latestSteps = stepValues[0] ?? null;
+    const latestSteps = mostRecentActivity?.steps ?? null;
     const avgSteps = computeAvg(stepValues);
 
     // Recovery score — endpoint returns asc order, take last (most recent) entry
@@ -136,13 +141,13 @@ export function useHealthSignals(userId: string): HealthSignals {
     const spo2Values = hasSpo2Recovery ? spo2FromRecovery : spo2FromSleep;
     const latestSpo2 = hasSpo2Recovery
       ? (mostRecentRecovery?.avg_spo2_percent ?? null)
-      : (spo2FromSleep[0] ?? null);
+      : (mostRecentSleep?.avg_spo2_percent ?? null);
     const avgSpo2 = computeAvg(spo2Values);
     const spo2Provider = hasSpo2Recovery ? recoveryProvider : sleepProvider;
 
-    // Respiratory rate from sleep summaries
+    // Respiratory rate from sleep summaries — use most recent
     const respValues = sleepSummaries.map((s) => s.avg_respiratory_rate);
-    const latestResp = respValues[0] ?? null;
+    const latestResp = mostRecentSleep?.avg_respiratory_rate ?? null;
     const avgResp = computeAvg(respValues);
 
     // HRV — prefer recovery (Whoop RMSSD), fallback to sleep (Apple SDNN), then body
@@ -152,7 +157,7 @@ export function useHealthSignals(userId: string): HealthSignals {
     const hrvValues = hasHrvRecovery ? hrvFromRecovery : hrvFromSleep;
     const latestHrvDirect = hasHrvRecovery
       ? (mostRecentRecovery?.avg_hrv_sdnn_ms ?? null)
-      : (hrvFromSleep[0] ?? null);
+      : (mostRecentSleep?.avg_hrv_sdnn_ms ?? null);
     const avgHrvDirect = computeAvg(hrvValues);
     const hrvFromBody = bodySummary?.averaged?.avg_hrv_sdnn_ms ?? null;
     const latestHrv = latestHrvDirect ?? hrvFromBody;
@@ -276,7 +281,7 @@ export function useHealthSignals(userId: string): HealthSignals {
           const mins = a.active_minutes ?? 0;
           return Math.min(21, (cal / 500) * 10 + (mins / 60) * 4);
         });
-        const latestStrain = strainValues[0] ?? null;
+        const latestStrain = strainValues[strainValues.length - 1] ?? null;
         const avgStrain = computeAvg(strainValues.map((v) => (v > 0 ? v : null)));
         return {
           label: 'Strain',
