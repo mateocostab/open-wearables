@@ -31,7 +31,7 @@ export function SimpleSidebar() {
     <aside className="relative w-64 bg-black flex flex-col border-r border-zinc-900">
       {/* Header */}
       <div className="p-4 border-b border-zinc-900">
-        <img src={logotype} alt="Open Wearables" className="h-auto" />
+        <img src={logotype} alt="Mateo's HealthOS" className="h-auto" />
       </div>
 
       {/* Navigation */}

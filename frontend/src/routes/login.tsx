@@ -41,7 +41,7 @@ function LoginPage() {
         {/* Left Section: Login Form */}
         <div className="flex flex-col justify-between p-8 sm:p-12 border-b lg:border-b-0 lg:border-r border-zinc-900 bg-black/90">
           {/* Header/Logo */}
-          <img src={logotype} alt="Open Wearables" className="h-30" />
+          <img src={logotype} alt="Mateo's HealthOS" className="h-30" />
 
           {/* Main Form Container */}
           <div className="w-full max-w-sm mx-auto space-y-6 my-auto py-8">

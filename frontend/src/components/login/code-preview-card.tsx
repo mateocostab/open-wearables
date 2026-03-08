@@ -24,7 +24,7 @@ export function CodePreviewCard() {
           </div>
           <div className="text-blue-400">
             const <span className="text-white">insight</span> ={' '}
-            <span className="text-purple-400">await</span> openWearables.create(
+            <span className="text-purple-400">await</span> healthOS.create(
             {'{'}
           </div>
           <div className="pl-4 text-zinc-300">
@@ -74,7 +74,7 @@ export function CodePreviewCard() {
           Normalized Health Data
         </h2>
         <p className="text-xs text-zinc-500 leading-relaxed">
-          Connect Garmin, Fitbit, Oura, and more with a single API.
+          Your biometric command center — all devices, one view.
         </p>
         <div className="mt-6 flex items-center justify-center gap-4">
           <div className="flex flex-col items-center gap-1">

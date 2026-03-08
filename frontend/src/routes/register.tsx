@@ -68,7 +68,7 @@ function RegisterPage() {
               <Activity className="text-black w-4 h-4" />
             </div>
             <span className="text-sm font-medium text-white tracking-tight uppercase">
-              Open Wearables
+              Mateo's HealthOS
             </span>
           </div>
 
@@ -79,7 +79,7 @@ function RegisterPage() {
                 Create account
               </h1>
               <p className="text-sm text-zinc-500">
-                Sign up to start building with Open Wearables
+                Sign up to start building with Mateo's HealthOS
               </p>
             </div>
 
