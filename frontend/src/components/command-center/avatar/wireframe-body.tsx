@@ -62,7 +62,7 @@ export function WireframeBody() {
 
   return (
     <group ref={groupRef}>
-      <group rotation={[Math.PI / 2, 0, 0]} scale={0.2} position={[0, -1.8, 0]}>
+      <group rotation={[0, 0, Math.PI / 2]} scale={0.2} position={[0, -1.8, 0]}>
         <WireframeMesh />
       </group>
 
