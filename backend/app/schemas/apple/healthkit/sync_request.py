@@ -77,7 +77,7 @@ class MetricRecord(BaseModel):
     endDate: datetime
     zoneOffset: str | None = None
     source: SourceInfo | None = None
-    value: Decimal
+    value: Decimal | str
     unit: str | None
     metadata: list[dict[str, Any]] | dict[str, Any] | None = None
 

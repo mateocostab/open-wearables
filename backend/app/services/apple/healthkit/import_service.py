@@ -6,6 +6,7 @@ from typing import Iterable
 from uuid import UUID, uuid4
 
 from app.constants.series_types.apple import (
+    AppleCategoryType,
     WorkoutStatisticType,
     get_detail_field_from_workout_statistic_type,
     get_series_type_from_metric_type,
@@ -25,7 +26,7 @@ from app.schemas import (
     TimeSeriesSampleCreate,
     UploadDataResponse,
 )
-from app.schemas.apple.healthkit.sync_request import WorkoutStatistic
+from app.schemas.apple.healthkit.sync_request import SleepRecord, WorkoutStatistic
 from app.services.event_record_service import event_record_service
 from app.services.timeseries_service import timeseries_service
 from app.utils.structured_logging import log_structured
@@ -46,6 +47,45 @@ class ImportService:
 
     def _dec(self, value: float | int | Decimal | None) -> Decimal | None:
         return None if value is None else Decimal(str(value))
+
+    def _extract_sleep_from_records(
+        self,
+        request: SDKSyncRequest,
+    ) -> list[SleepRecord]:
+        """
+        Extract sleep analysis records from data.records[] and convert them
+        to SleepRecord objects compatible with the sleep pipeline.
+
+        Auto Health Export sends sleep as HKCategoryTypeIdentifierSleepAnalysis
+        records where the `value` field contains the sleep stage (e.g. "asleepCore").
+        """
+        sleep_records: list[SleepRecord] = []
+        for rjson in request.data.records:
+            if (rjson.type or "") != AppleCategoryType.SLEEP_ANALYSIS:
+                continue
+            # The value field contains the sleep stage string (e.g. "asleepCore", "asleepDeep")
+            stage = str(rjson.value)
+            sleep_records.append(
+                SleepRecord(
+                    id=rjson.id,
+                    parentId=rjson.parentId,
+                    stage=stage,
+                    startDate=rjson.startDate,
+                    endDate=rjson.endDate,
+                    zoneOffset=rjson.zoneOffset,
+                    source=rjson.source,
+                    metadata=rjson.metadata,
+                )
+            )
+        if sleep_records:
+            log_structured(
+                self.log,
+                "info",
+                f"Extracted {len(sleep_records)} sleep records from data.records[]",
+                action="sleep_from_records_extracted",
+                count=len(sleep_records),
+            )
+        return sleep_records
 
     def _build_workout_bundles(
         self,
@@ -114,9 +154,17 @@ class ImportService:
         provider = request.provider
 
         for rjson in request.data.records:
-            value = Decimal(str(rjson.value))
-
             record_type = rjson.type or ""
+
+            # Sleep analysis records are handled separately via _extract_sleep_from_records
+            if record_type == AppleCategoryType.SLEEP_ANALYSIS:
+                continue
+
+            try:
+                value = Decimal(str(rjson.value))
+            except Exception:
+                continue
+
             series_type = get_series_type_from_metric_type(record_type)
 
             if not series_type:
@@ -278,6 +326,11 @@ class ImportService:
 
         # Commit all workout and timeseries changes in one transaction
         db_session.commit()
+
+        # Extract sleep records embedded in data.records[] (Auto Health Export format)
+        sleep_from_records = self._extract_sleep_from_records(request)
+        if sleep_from_records:
+            request.data.sleep.extend(sleep_from_records)
 
         # Process sleep (count sleep segments from input)
         if request.data.sleep:
