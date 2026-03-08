@@ -2,7 +2,6 @@ import { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
-import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const ROTATION_SPEED = 0.004;
 const TARGET_HEIGHT = 3.5;
@@ -85,16 +84,7 @@ function WireframeMesh() {
 
   const edgesGeometry = useMemo(() => {
     if (!posedGeometry) return null;
-    // Build a clean geometry with only position+index for mergeVertices —
-    // the baked geometry still carries skinWeight/skinIndex which cause errors
-    const clean = new THREE.BufferGeometry();
-    clean.setAttribute('position', posedGeometry.getAttribute('position'));
-    if (posedGeometry.index) clean.setIndex(posedGeometry.index);
-    // Merge coincident vertices to eliminate UV seam splits that create
-    // thousands of false "hard edges" on the smooth body surface
-    const merged = mergeVertices(clean, 0.01);
-    merged.computeVertexNormals();
-    return new THREE.EdgesGeometry(merged, 30);
+    return new THREE.EdgesGeometry(posedGeometry, 50);
   }, [posedGeometry]);
 
   if (!posedGeometry || !edgesGeometry) return null;
