@@ -100,8 +100,8 @@ export function CommandCenterLayout({ userId }: CommandCenterLayoutProps) {
               </span>
             </div>
 
-            {/* Avatar container - aspect-ratio to match body proportions */}
-            <div className="relative aspect-[3/4]">
+            {/* Avatar container */}
+            <div className="relative h-[280px]">
               <Suspense fallback={<AvatarFallback />}>
                 <AvatarCanvas
                   restingHr={restingHr}

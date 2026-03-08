@@ -12,6 +12,12 @@ interface AvatarCanvasProps {
   activeCalories?: number | null;
 }
 
+// Model center is at roughly (0, 0.37, -9)
+// Model height Y: ~3.68, width X: ~6.64
+// Camera needs to be at Z > 0 looking at center, far enough to see full body
+// At FOV 50, distance ~5 from model front (Z=-0.12) means camera at Z=5
+// Looking at center (0, 0.37, -9)
+
 export function AvatarCanvas({
   restingHr,
   hrv,
@@ -22,7 +28,12 @@ export function AvatarCanvas({
   return (
     <div className="relative h-full w-full">
       <Canvas
-        camera={{ position: [0, 0, 20], fov: 55, near: 0.1, far: 200 }}
+        camera={{
+          position: [0, 0.4, 6],
+          fov: 50,
+          near: 0.1,
+          far: 100,
+        }}
         frameloop="always"
         dpr={[1, 1.5]}
         style={{ background: 'transparent' }}
@@ -40,6 +51,7 @@ export function AvatarCanvas({
             activeCalories={activeCalories}
           />
           <OrbitControls
+            target={[0, 0.4, -9]}
             enableZoom={false}
             enablePan={false}
             minPolarAngle={Math.PI * 0.3}

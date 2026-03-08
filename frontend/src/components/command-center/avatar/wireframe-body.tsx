@@ -1,5 +1,5 @@
-import { useRef, useMemo, useEffect } from 'react';
-import { useFrame, useThree } from '@react-three/fiber';
+import { useRef, useMemo } from 'react';
+import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 
@@ -9,7 +9,6 @@ export function WireframeBody() {
   const groupRef = useRef<THREE.Group>(null);
   const glowRef = useRef<THREE.MeshBasicMaterial>(null);
   const { scene } = useGLTF('/models/human-body.glb');
-  const { camera } = useThree();
 
   useFrame(({ clock }) => {
     if (groupRef.current) {
@@ -55,52 +54,20 @@ export function WireframeBody() {
     return { wireScene: wClone, glowScene: gClone };
   }, [scene, wireframeMaterial, glowMaterial]);
 
-  // After mount, compute the world-space bounding box and fit the camera
-  useEffect(() => {
-    if (!groupRef.current) return;
-
-    // Force a matrix update so skinned mesh transforms are applied
-    groupRef.current.updateMatrixWorld(true);
-
-    const box = new THREE.Box3().setFromObject(groupRef.current);
-    const center = box.getCenter(new THREE.Vector3());
-    const size = box.getSize(new THREE.Vector3());
-
-    // Use the visible extent (Y height and X width) to fit the model,
-    // NOT the Z depth (which is huge due to the model's orientation).
-    const cam = camera as THREE.PerspectiveCamera;
-    const fov = cam.fov * (Math.PI / 180);
-    const aspect = cam.aspect || 0.75;
-
-    // Distance needed to fit height
-    const distForHeight = (size.y / 2) / Math.tan(fov / 2);
-    // Distance needed to fit width
-    const distForWidth = (size.x / 2) / Math.tan(fov / 2) / aspect;
-    // Use whichever is larger + small padding
-    const dist = Math.max(distForHeight, distForWidth) * 1.15;
-
-    camera.position.set(center.x, center.y, box.max.z + dist);
-    camera.lookAt(center.x, center.y, center.z);
-    camera.updateProjectionMatrix();
-  }, [wireScene, camera]);
-
-  // Compute base ring position from the bounding box
-  const ringY = useMemo(() => {
-    const tempGroup = new THREE.Group();
-    tempGroup.add(wireScene.clone(true));
-    tempGroup.updateMatrixWorld(true);
-    const box = new THREE.Box3().setFromObject(tempGroup);
-    return box.min.y;
-  }, [wireScene]);
+  // Model bounding box (from analysis):
+  // Y: -1.47 to 2.21 (height ~3.68), X: -3.29 to 3.35 (width ~6.64)
+  // Z: -17.86 to -0.12 (depth ~17.74)
+  // Center: (0.03, 0.37, -8.99)
+  // The body faces +Z direction, feet near Z=0, head near Z=-18
 
   return (
     <group ref={groupRef}>
       <primitive object={wireScene} />
       <primitive object={glowScene} />
 
-      {/* Base ring at feet */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, ringY, 0]}>
-        <ringGeometry args={[2.0, 2.1, 64]} />
+      {/* Base ring at feet (Y ~ -1.47) */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.5, -9]}>
+        <ringGeometry args={[2.5, 2.65, 64]} />
         <meshBasicMaterial
           ref={glowRef}
           color="#00E5FF"
@@ -109,8 +76,8 @@ export function WireframeBody() {
           side={THREE.DoubleSide}
         />
       </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, ringY - 0.01, 0]}>
-        <circleGeometry args={[2.0, 64]} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.51, -9]}>
+        <circleGeometry args={[2.5, 64]} />
         <meshBasicMaterial
           color="#00E5FF"
           transparent
