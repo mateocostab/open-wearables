@@ -48,11 +48,11 @@ function WireframeMesh() {
     // This sidesteps SkinnedMesh double-rotation issues with parent groups
     const geom = skinned.geometry.clone();
     const pos = geom.getAttribute('position') as THREE.BufferAttribute;
-    const v = new THREE.Vector4();
+    const v = new THREE.Vector3();
 
     for (let i = 0; i < pos.count; i++) {
-      v.set(pos.getX(i), pos.getY(i), pos.getZ(i), 1);
-      skinned.boneTransform(i, v);
+      v.set(pos.getX(i), pos.getY(i), pos.getZ(i));
+      skinned.applyBoneTransform(i, v);
       pos.setXYZ(i, v.x, v.y, v.z);
     }
     pos.needsUpdate = true;
