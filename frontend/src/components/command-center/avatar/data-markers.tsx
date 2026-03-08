@@ -27,20 +27,17 @@ function MarkerLabel({
   color: string;
 }) {
   return (
-    <div
-      className="pointer-events-none select-none whitespace-nowrap rounded bg-black/80 px-1.5 py-0.5 backdrop-blur-sm border border-white/5"
-      style={{ fontSize: '9px' }}
-    >
-      <div className="flex items-center gap-1">
+    <div className="pointer-events-none select-none whitespace-nowrap rounded-lg bg-black/85 px-3 py-1.5 backdrop-blur-sm border border-white/10 shadow-lg">
+      <div className="flex items-center gap-1.5 mb-0.5">
         <span
-          className="inline-block h-1 w-1 rounded-full"
+          className="inline-block h-2 w-2 rounded-full"
           style={{ backgroundColor: color }}
         />
-        <span className="font-medium text-white/60">{label}</span>
+        <span className="text-[11px] font-semibold text-white/70 uppercase tracking-wider">
+          {label}
+        </span>
       </div>
-      <span className="font-bold text-white" style={{ fontSize: '10px' }}>
-        {value}
-      </span>
+      <span className="text-sm font-bold text-white">{value}</span>
     </div>
   );
 }
@@ -52,11 +49,6 @@ export function DataMarkers({
   activeCalories,
 }: DataMarkersProps) {
   const markers: MarkerConfig[] = [];
-
-  // Positions are in world space - the model extends roughly:
-  // Y: -1.5 to 2.2, Z: -18 to 0, X: -3.3 to 3.4
-  // Center is around (0, 0.4, -9)
-  // Camera looks at center, so markers should be offset from center
 
   if (restingHr != null || hrv != null) {
     const parts: string[] = [];
@@ -99,13 +91,13 @@ export function DataMarkers({
           <Line
             points={[marker.bodyAnchor, marker.labelOffset]}
             color={marker.color}
-            lineWidth={1}
+            lineWidth={1.5}
             transparent
-            opacity={0.4}
+            opacity={0.5}
           />
           <Html
             position={marker.labelOffset}
-            distanceFactor={12}
+            distanceFactor={6}
             zIndexRange={[10, 0]}
             center
           >
