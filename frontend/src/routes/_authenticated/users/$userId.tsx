@@ -23,6 +23,7 @@ import {
   useAppleXmlUpload,
   useGenerateInvitationCode,
 } from '@/hooks/api/use-users';
+import { useUserDataSources } from '@/hooks/api/use-priorities';
 import { ROUTES } from '@/lib/constants/routes';
 import { copyToClipboard } from '@/lib/utils/clipboard';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -74,12 +75,19 @@ function UserDetailPage() {
   // Tab state
   const [activeTab, setActiveTab] = useState('profile');
 
+  // Data sources for device filtering
+  const { data: dataSources } = useUserDataSources(userId);
+
   // Date range states for different sections
   const [workoutDateRange, setWorkoutDateRange] = useState<DateRangeValue>(30);
   const [activityDateRange, setActivityDateRange] =
     useState<DateRangeValue>(30);
   const [sleepDateRange, setSleepDateRange] = useState<DateRangeValue>(30);
   const [heartDateRange, setHeartDateRange] = useState<DateRangeValue>(30);
+
+  // Device filter states per section
+  const [activityDeviceFilter, setActivityDeviceFilter] = useState<string | null>(null);
+  const [sleepDeviceFilter, setSleepDeviceFilter] = useState<string | null>(null);
 
   const { mutate: deleteUser, isPending: isDeleting } = useDeleteUser();
   const { handleUpload, isUploading: isUploadingFile } = useAppleXmlUpload();
@@ -125,6 +133,9 @@ function UserDetailPage() {
             userId={userId}
             dateRange={activityDateRange}
             onDateRangeChange={setActivityDateRange}
+            dataSources={dataSources}
+            deviceFilter={activityDeviceFilter}
+            onDeviceFilterChange={setActivityDeviceFilter}
           />
         ),
       },
@@ -149,6 +160,9 @@ function UserDetailPage() {
             userId={userId}
             dateRange={sleepDateRange}
             onDateRangeChange={setSleepDateRange}
+            dataSources={dataSources}
+            deviceFilter={sleepDeviceFilter}
+            onDeviceFilterChange={setSleepDeviceFilter}
           />
         ),
       },
@@ -159,7 +173,7 @@ function UserDetailPage() {
         content: <BodySection userId={userId} />,
       },
     ],
-    [userId, workoutDateRange, activityDateRange, heartDateRange, sleepDateRange]
+    [userId, workoutDateRange, activityDateRange, heartDateRange, sleepDateRange, dataSources, activityDeviceFilter, sleepDeviceFilter]
   );
 
   const handleCopyPairLink = async () => {
