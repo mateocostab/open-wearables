@@ -252,12 +252,21 @@ class ImportService:
         metrics_raw = root.data.get("metrics", [])
         user_uuid = UUID(user_id)
 
-        # Find sleep_analysis metric
+        # Find sleep_analysis metric — log raw JSON to understand format
         sleep_data_points = []
         for m in metrics_raw:
             metric = MetricJSON(**m)
             if metric.name.lower().replace(" ", "_") == AE_SLEEP_ANALYSIS_NAME:
                 sleep_data_points = metric.data
+                # Log raw JSON (first 2 entries) before Pydantic parsing strips unknown fields
+                raw_sleep = [raw_m for raw_m in metrics_raw if MetricJSON(**raw_m).name.lower().replace(" ", "_") == AE_SLEEP_ANALYSIS_NAME]
+                if raw_sleep:
+                    raw_data = raw_sleep[0].get("data", [])[:2]
+                    log_structured(
+                        self.log, "info",
+                        f"sleep_analysis RAW JSON (first 2): {raw_data}",
+                        provider="apple", action="apple_ae_sleep_raw", user_id=user_id,
+                    )
                 break
 
         if not sleep_data_points:
