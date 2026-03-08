@@ -85,9 +85,14 @@ function WireframeMesh() {
 
   const edgesGeometry = useMemo(() => {
     if (!posedGeometry) return null;
+    // Build a clean geometry with only position+index for mergeVertices —
+    // the baked geometry still carries skinWeight/skinIndex which cause errors
+    const clean = new THREE.BufferGeometry();
+    clean.setAttribute('position', posedGeometry.getAttribute('position'));
+    if (posedGeometry.index) clean.setIndex(posedGeometry.index);
     // Merge coincident vertices to eliminate UV seam splits that create
     // thousands of false "hard edges" on the smooth body surface
-    const merged = mergeVertices(posedGeometry, 0.01);
+    const merged = mergeVertices(clean, 0.01);
     merged.computeVertexNormals();
     return new THREE.EdgesGeometry(merged, 30);
   }, [posedGeometry]);
