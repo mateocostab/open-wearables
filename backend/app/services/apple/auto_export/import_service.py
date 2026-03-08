@@ -5,7 +5,6 @@ from logging import Logger, getLogger
 from typing import Iterable
 from uuid import UUID, uuid4
 
-from app.constants.series_types.apple.sleep_types import SleepPhase, get_apple_sleep_phase
 from app.database import DbSession
 from app.schemas import (
     AEWorkoutJSON,
@@ -240,204 +239,129 @@ class ImportService:
         raw: dict,
         user_id: str,
     ) -> list[tuple[EventRecordCreate, EventRecordDetailCreate]]:
-        """Parse sleep_analysis metric from Health Auto Export and build sleep event records.
+        """Parse sleep_analysis from Health Auto Export and build sleep event records.
 
-        Health Auto Export sends sleep as a metric with name "sleep_analysis".
-        Each data point has: value (stage string), startDate, endDate, source.
-
-        We group consecutive stages into sessions (gap > 2h = new session),
-        then create an EventRecord + SleepDetails for each session.
+        Health Auto Export sends sleep as pre-aggregated daily summaries (NOT individual stages).
+        Each data point is a dict with:
+        - sleepStart/sleepEnd: session timestamps
+        - inBedStart/inBedEnd: in-bed timestamps
+        - core: light sleep hours
+        - deep: deep sleep hours
+        - rem: REM sleep hours
+        - awake: awake hours
+        - asleep: unspecified sleep hours
+        - inBed: in-bed hours (non-sleeping)
+        - totalSleep: total sleep hours
+        - source: device name
+        - date: date string
         """
         root = RootJSON(**raw)
         metrics_raw = root.data.get("metrics", [])
         user_uuid = UUID(user_id)
 
-        # Find sleep_analysis metric — log raw JSON to understand format
-        sleep_data_points = []
+        # Find sleep_analysis metric from RAW dict (not Pydantic — it strips unknown fields)
+        raw_sleep_data: list[dict] = []
         for m in metrics_raw:
-            metric = MetricJSON(**m)
-            if metric.name.lower().replace(" ", "_") == AE_SLEEP_ANALYSIS_NAME:
-                sleep_data_points = metric.data
-                # Log raw JSON (first 2 entries) before Pydantic parsing strips unknown fields
-                raw_sleep = [raw_m for raw_m in metrics_raw if MetricJSON(**raw_m).name.lower().replace(" ", "_") == AE_SLEEP_ANALYSIS_NAME]
-                if raw_sleep:
-                    raw_data = raw_sleep[0].get("data", [])[:2]
-                    log_structured(
-                        self.log, "info",
-                        f"sleep_analysis RAW JSON (first 2): {raw_data}",
-                        provider="apple", action="apple_ae_sleep_raw", user_id=user_id,
-                    )
+            name = m.get("name", "")
+            if name.lower().replace(" ", "_") == AE_SLEEP_ANALYSIS_NAME:
+                raw_sleep_data = m.get("data", [])
                 break
 
-        if not sleep_data_points:
-            log_structured(self.log, "info", "No sleep_analysis data points found", provider="apple", action="apple_ae_sleep_debug", user_id=user_id)
+        if not raw_sleep_data:
             return []
 
-        # Debug: log first 3 raw data points to understand format
-        sample_dps = sleep_data_points[:3]
-        log_structured(
-            self.log, "info",
-            f"sleep_analysis: {len(sleep_data_points)} data points. Samples: {[{'value': dp.value, 'startDate': dp.startDate, 'endDate': dp.endDate, 'date': dp.date, 'qty': dp.qty, 'source': dp.source} for dp in sample_dps]}",
-            provider="apple", action="apple_ae_sleep_debug", user_id=user_id,
-        )
+        results = []
+        skipped = 0
 
-        # Parse and sort data points by start time
-        parsed_stages: list[tuple[datetime, datetime, SleepPhase, str | None]] = []
-        skipped_no_fields = 0
-        skipped_no_phase = 0
-        skipped_bad_time = 0
-        skipped_end_before_start = 0
-        unique_values: set[str] = set()
+        for entry in raw_sleep_data:
+            sleep_start_str = entry.get("sleepStart")
+            sleep_end_str = entry.get("sleepEnd")
 
-        for dp in sleep_data_points:
-            if dp.value:
-                unique_values.add(dp.value)
-
-            if not dp.value or not dp.startDate or not dp.endDate:
-                skipped_no_fields += 1
-                continue
-
-            phase = get_apple_sleep_phase(dp.value)
-            if phase is None:
-                skipped_no_phase += 1
+            if not sleep_start_str or not sleep_end_str:
+                skipped += 1
                 continue
 
             try:
-                start = self._dt(dp.startDate)
-                end = self._dt(dp.endDate)
-            except (ValueError, TypeError) as e:
-                skipped_bad_time += 1
-                log_structured(self.log, "warning", f"Sleep date parse error: {e}, startDate={dp.startDate}, endDate={dp.endDate}", provider="apple", action="apple_ae_sleep_parse_error", user_id=user_id)
+                sleep_start = self._dt(sleep_start_str)
+                sleep_end = self._dt(sleep_end_str)
+            except (ValueError, TypeError):
+                skipped += 1
                 continue
 
-            if end <= start:
-                skipped_end_before_start += 1
+            if sleep_end <= sleep_start:
+                skipped += 1
                 continue
 
-            parsed_stages.append((start, end, phase, dp.source))
+            total_duration = (sleep_end - sleep_start).total_seconds()
 
-        log_structured(
-            self.log, "info",
-            f"Sleep parsing: {len(parsed_stages)} valid stages from {len(sleep_data_points)} data points. "
-            f"Skipped: no_fields={skipped_no_fields}, no_phase={skipped_no_phase} (unique values: {unique_values}), "
-            f"bad_time={skipped_bad_time}, end<=start={skipped_end_before_start}",
-            provider="apple", action="apple_ae_sleep_parse_result", user_id=user_id,
-        )
-
-        if not parsed_stages:
-            return []
-
-        # Sort by start time
-        parsed_stages.sort(key=lambda x: x[0])
-
-        # Group into sessions by time proximity
-        sessions: list[list[tuple[datetime, datetime, SleepPhase, str | None]]] = []
-        current_session: list[tuple[datetime, datetime, SleepPhase, str | None]] = [parsed_stages[0]]
-
-        for stage in parsed_stages[1:]:
-            prev_end = current_session[-1][1]
-            curr_start = stage[0]
-
-            if curr_start - prev_end > SLEEP_SESSION_GAP:
-                sessions.append(current_session)
-                current_session = [stage]
-            else:
-                current_session.append(stage)
-
-        sessions.append(current_session)
-
-        log_structured(
-            self.log, "info",
-            f"Sleep sessions: {len(sessions)} sessions grouped from {len(parsed_stages)} stages",
-            provider="apple", action="apple_ae_sleep_sessions", user_id=user_id,
-        )
-
-        # Build EventRecord + SleepDetails per session
-        results = []
-        skipped_short = 0
-        for session_stages in sessions:
-            session_start = min(s[0] for s in session_stages)
-            session_end = max(s[1] for s in session_stages)
-            total_duration = (session_end - session_start).total_seconds()
-
-            # Skip very short sessions (< 30 min) — likely noise
+            # Skip very short sessions (< 30 min)
             if total_duration < 1800:
-                skipped_short += 1
+                skipped += 1
                 continue
 
-            # Accumulate stage durations
-            in_bed_sec = 0.0
-            awake_sec = 0.0
-            light_sec = 0.0
-            deep_sec = 0.0
-            rem_sec = 0.0
+            # Stage durations — values are in HOURS, convert to minutes
+            core_hrs = entry.get("core") or 0
+            deep_hrs = entry.get("deep") or 0
+            rem_hrs = entry.get("rem") or 0
+            awake_hrs = entry.get("awake") or 0
+            asleep_hrs = entry.get("asleep") or 0  # unspecified sleep
+            in_bed_hrs = entry.get("inBed") or 0
 
-            source_name = None
-            for start, end, phase, source in session_stages:
-                dur = (end - start).total_seconds()
-                if source and not source_name:
-                    source_name = source
+            light_min = int(round((core_hrs + asleep_hrs) * 60))
+            deep_min = int(round(deep_hrs * 60))
+            rem_min = int(round(rem_hrs * 60))
+            awake_min = int(round(awake_hrs * 60))
+            total_sleep_min = light_min + deep_min + rem_min
 
-                match phase:
-                    case SleepPhase.IN_BED:
-                        in_bed_sec += dur
-                    case SleepPhase.AWAKE:
-                        awake_sec += dur
-                    case SleepPhase.ASLEEP_LIGHT:
-                        light_sec += dur
-                    case SleepPhase.ASLEEP_DEEP:
-                        deep_sec += dur
-                    case SleepPhase.ASLEEP_REM:
-                        rem_sec += dur
-                    case SleepPhase.SLEEPING:
-                        # Unspecified sleep → count as light
-                        light_sec += dur
+            # In-bed time from inBedStart/inBedEnd if available, else from duration
+            in_bed_start_str = entry.get("inBedStart")
+            in_bed_end_str = entry.get("inBedEnd")
+            if in_bed_start_str and in_bed_end_str:
+                try:
+                    ib_start = self._dt(in_bed_start_str)
+                    ib_end = self._dt(in_bed_end_str)
+                    time_in_bed_min = int((ib_end - ib_start).total_seconds() / 60)
+                except (ValueError, TypeError):
+                    time_in_bed_min = int(total_duration / 60)
+            else:
+                time_in_bed_min = int(total_duration / 60)
 
-            total_sleep_sec = light_sec + deep_sec + rem_sec
-            is_nap = total_duration < 5400  # < 1.5 hours = nap
+            source_name = entry.get("source") or "Auto Export"
+            is_nap = total_duration < 5400  # < 1.5 hours
 
             sleep_id = uuid4()
             record = EventRecordCreate(
                 id=sleep_id,
                 external_id=None,
                 user_id=user_uuid,
-                start_datetime=session_start,
-                end_datetime=session_end,
+                start_datetime=sleep_start,
+                end_datetime=sleep_end,
                 duration_seconds=int(total_duration),
                 category="sleep",
                 type="sleep_session",
-                source_name=source_name or "Auto Export",
+                source_name=source_name,
                 source="apple_health_auto_export",
                 device_model=source_name,
             )
 
             detail = EventRecordDetailCreate(
                 record_id=sleep_id,
-                sleep_total_duration_minutes=int(total_sleep_sec // 60),
-                sleep_time_in_bed_minutes=int(in_bed_sec // 60) if in_bed_sec > 0 else int(total_duration // 60),
-                sleep_deep_minutes=int(deep_sec // 60),
-                sleep_rem_minutes=int(rem_sec // 60),
-                sleep_light_minutes=int(light_sec // 60),
-                sleep_awake_minutes=int(awake_sec // 60),
+                sleep_total_duration_minutes=total_sleep_min,
+                sleep_time_in_bed_minutes=time_in_bed_min,
+                sleep_deep_minutes=deep_min,
+                sleep_rem_minutes=rem_min,
+                sleep_light_minutes=light_min,
+                sleep_awake_minutes=awake_min,
                 sleep_efficiency_score=None,
                 is_nap=is_nap,
             )
 
             results.append((record, detail))
 
-            log_structured(
-                self.log, "info",
-                f"Sleep session built: {session_start} -> {session_end}, "
-                f"duration={int(total_duration//60)}min, stages={len(session_stages)}, "
-                f"deep={int(deep_sec//60)}min, light={int(light_sec//60)}min, rem={int(rem_sec//60)}min, "
-                f"awake={int(awake_sec//60)}min, is_nap={is_nap}",
-                provider="apple", action="apple_ae_sleep_session_built", user_id=user_id,
-            )
-
         log_structured(
             self.log, "info",
-            f"Sleep records total: {len(results)} created, {skipped_short} skipped (too short)",
-            provider="apple", action="apple_ae_sleep_final", user_id=user_id,
+            f"Sleep records: {len(results)} created from {len(raw_sleep_data)} entries ({skipped} skipped)",
+            provider="apple", action="apple_ae_sleep_result", user_id=user_id,
         )
 
         return results
