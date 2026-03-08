@@ -62,13 +62,13 @@ export function WireframeBody() {
 
   return (
     <group ref={groupRef}>
-      {/* Manual transform: rotate +90° X to stand upright, scale to fit, center at origin */}
-      <group rotation={[Math.PI / 2, 0, 0]} scale={0.2} position={[0, -1.8, 0]}>
+      {/* Rotate +90° Z to stand the body upright (body lies along X in deformed mesh) */}
+      <group rotation={[0, 0, Math.PI / 2]} scale={0.15} position={[0, 0, 0]}>
         <WireframeMesh />
       </group>
 
       {/* Base ring */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.8, 0]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.3, 0]}>
         <ringGeometry args={[0.8, 0.85, 64]} />
         <meshBasicMaterial
           color="#00E5FF"
