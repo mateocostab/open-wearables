@@ -69,11 +69,11 @@ export function WireframeBody() {
     // Move the camera to see the whole model with generous padding
     const maxDim = Math.max(size.x, size.y, size.z);
     const fov = (camera as THREE.PerspectiveCamera).fov * (Math.PI / 180);
-    const dist = maxDim / (2 * Math.tan(fov / 2)) * 1.9;
+    const dist = maxDim / (2 * Math.tan(fov / 2)) * 2.1;
 
-    // Position camera slightly right and at body center height, looking at center
-    camera.position.set(center.x + dist * 0.15, center.y + maxDim * 0.05, center.z + dist);
-    camera.lookAt(center.x, center.y + maxDim * 0.05, center.z);
+    // Position camera centered on body, slightly elevated
+    camera.position.set(center.x, center.y + maxDim * 0.08, center.z + dist);
+    camera.lookAt(center.x, center.y + maxDim * 0.03, center.z);
     camera.updateProjectionMatrix();
   }, [wireScene, camera]);
 
