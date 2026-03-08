@@ -34,7 +34,6 @@ function computeModelTransform(
   });
   if (!skinned) return null;
 
-  // Scene bounds via Box3.setFromObject (includes all hierarchy transforms)
   scene.updateWorldMatrix(true, true);
   const sceneBox = new THREE.Box3().setFromObject(scene);
   const size = new THREE.Vector3();
@@ -42,7 +41,6 @@ function computeModelTransform(
   sceneBox.getSize(size);
   sceneBox.getCenter(center);
 
-  // Tallest axis from scene bounds
   const axes: Array<{ axis: 'x' | 'y' | 'z'; extent: number }> = [
     { axis: 'x', extent: size.x },
     { axis: 'y', extent: size.y },
@@ -52,7 +50,6 @@ function computeModelTransform(
   const tallAxis = axes[0].axis;
   const tallExtent = axes[0].extent;
 
-  // Bone density heuristic in MESH-LOCAL space for head direction
   const boneInverses = skinned.skeleton.boneInverses;
   const tempMat = new THREE.Matrix4();
   const localBonePositions: THREE.Vector3[] = [];
@@ -88,7 +85,6 @@ function computeModelTransform(
   const localHeadSign = countAbove >= countBelow ? 1 : -1;
   const headSign = boneTallAxis === tallAxis ? localHeadSign : 1;
 
-  // Rotation to align tallAxis → Y-up with head pointing +Y
   let rx = 0,
     ry = 0,
     rz = 0;
@@ -115,7 +111,7 @@ function computeModelTransform(
 }
 
 // ---------------------------------------------------------------------------
-// Wireframe body mesh with pulsing opacity
+// Wireframe body mesh — single clone (no glow clone for perf)
 // ---------------------------------------------------------------------------
 
 function WireframeMesh({ scene }: { scene: THREE.Object3D }) {
@@ -130,79 +126,45 @@ function WireframeMesh({ scene }: { scene: THREE.Object3D }) {
     []
   );
 
-  const glowMaterial = useMemo(
-    () =>
-      new THREE.MeshBasicMaterial({
-        color: CYAN,
-        transparent: true,
-        opacity: 0.06,
-        side: THREE.FrontSide,
-      }),
-    []
-  );
-
-  const { wireframeClone, glowClone } = useMemo(() => {
-    const clone1 = SkeletonUtils.clone(scene);
-    clone1.traverse((child) => {
+  const clone = useMemo(() => {
+    const c = SkeletonUtils.clone(scene);
+    c.traverse((child) => {
       if (child instanceof THREE.Mesh || child instanceof THREE.SkinnedMesh) {
         child.material = wireframeMaterial;
       }
     });
+    return c;
+  }, [scene, wireframeMaterial]);
 
-    const clone2 = SkeletonUtils.clone(scene);
-    clone2.traverse((child) => {
-      if (child instanceof THREE.Mesh || child instanceof THREE.SkinnedMesh) {
-        child.material = glowMaterial;
-      }
-    });
-
-    return { wireframeClone: clone1, glowClone: clone2 };
-  }, [scene, wireframeMaterial, glowMaterial]);
-
-  // Subtle pulse on wireframe and glow
+  // Subtle pulse
   useFrame(({ clock }) => {
-    const t = clock.getElapsedTime();
-    wireframeMaterial.opacity = 0.50 + Math.sin(t * 1.5) * 0.05;
-    glowMaterial.opacity = 0.05 + Math.sin(t * 2.0) * 0.02;
+    wireframeMaterial.opacity = 0.50 + Math.sin(clock.getElapsedTime() * 1.5) * 0.05;
   });
 
-  return (
-    <group>
-      <primitive object={wireframeClone} />
-      <primitive object={glowClone} />
-    </group>
-  );
+  return <primitive object={clone} />;
 }
 
 // ---------------------------------------------------------------------------
-// Scan ring — sweeps up and down the body
+// Scan ring — thin ring that sweeps up and down the body
 // ---------------------------------------------------------------------------
 
 function ScanRing() {
   const ringRef = useRef<THREE.Group>(null);
   const matRef = useRef<THREE.MeshBasicMaterial>(null);
-  const trailRef = useRef<THREE.MeshBasicMaterial>(null);
 
   useFrame(({ clock }) => {
     if (!ringRef.current) return;
     const t = clock.getElapsedTime();
-    // Smooth sawtooth: sweeps bottom→top, pauses, then top→bottom
-    const y = Math.sin(t * 0.5) * HALF_HEIGHT * 0.9;
-    ringRef.current.position.y = y;
-
+    ringRef.current.position.y = Math.sin(t * 0.5) * HALF_HEIGHT * 0.9;
     if (matRef.current) {
       matRef.current.opacity = 0.25 + Math.sin(t * 4) * 0.1;
-    }
-    if (trailRef.current) {
-      trailRef.current.opacity = 0.06 + Math.sin(t * 4) * 0.03;
     }
   });
 
   return (
     <group ref={ringRef}>
-      {/* Bright scan line */}
       <mesh rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[0, 1.0, 64]} />
+        <ringGeometry args={[0.85, 0.95, 48]} />
         <meshBasicMaterial
           ref={matRef}
           color={CYAN}
@@ -211,29 +173,19 @@ function ScanRing() {
           side={THREE.DoubleSide}
         />
       </mesh>
-      {/* Soft trailing glow disc */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.05, 0]}>
-        <ringGeometry args={[0, 0.9, 64]} />
-        <meshBasicMaterial
-          ref={trailRef}
-          color={CYAN}
-          transparent
-          opacity={0.06}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
     </group>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Data particles — float upward around the body like data being read
+// Data particles — float upward around the body
 // ---------------------------------------------------------------------------
 
-const PARTICLE_COUNT = 60;
+const PARTICLE_COUNT = 30;
 
 function DataParticles() {
   const pointsRef = useRef<THREE.Points>(null);
+  const frameCount = useRef(0);
 
   const { positions, velocities } = useMemo(() => {
     const pos = new Float32Array(PARTICLE_COUNT * 3);
@@ -244,12 +196,15 @@ function DataParticles() {
       pos[i * 3] = Math.cos(angle) * r;
       pos[i * 3 + 1] = (Math.random() - 0.5) * TARGET_HEIGHT;
       pos[i * 3 + 2] = Math.sin(angle) * r;
-      vel[i] = 0.002 + Math.random() * 0.005;
+      vel[i] = 0.006 + Math.random() * 0.015;
     }
     return { positions: pos, velocities: vel };
   }, []);
 
+  // Update every 3rd frame to reduce CPU overhead
   useFrame(() => {
+    frameCount.current++;
+    if (frameCount.current % 3 !== 0) return;
     if (!pointsRef.current) return;
     const pos = pointsRef.current.geometry.getAttribute(
       'position'
@@ -300,7 +255,7 @@ function BasePlatform() {
     <group position={[0, -HALF_HEIGHT, 0]} rotation={[-Math.PI / 2, 0, 0]}>
       {/* Ground glow fill */}
       <mesh position={[0, 0, -0.02]}>
-        <circleGeometry args={[0.85, 64]} />
+        <circleGeometry args={[0.85, 32]} />
         <meshBasicMaterial
           color={CYAN}
           transparent
@@ -310,7 +265,7 @@ function BasePlatform() {
       </mesh>
       {/* Inner ring */}
       <mesh>
-        <ringGeometry args={[0.45, 0.47, 64]} />
+        <ringGeometry args={[0.45, 0.47, 32]} />
         <meshBasicMaterial
           color={CYAN}
           transparent
@@ -320,7 +275,7 @@ function BasePlatform() {
       </mesh>
       {/* Main ring */}
       <mesh>
-        <ringGeometry args={[0.8, 0.85, 64]} />
+        <ringGeometry args={[0.8, 0.85, 32]} />
         <meshBasicMaterial
           color={CYAN}
           transparent
@@ -328,7 +283,7 @@ function BasePlatform() {
           side={THREE.DoubleSide}
         />
       </mesh>
-      {/* Outer dashed ring (hexagonal, rotating) */}
+      {/* Outer hexagonal ring (rotating) */}
       <mesh ref={hexRingRef}>
         <ringGeometry args={[1.1, 1.14, 6]} />
         <meshBasicMaterial
@@ -338,9 +293,9 @@ function BasePlatform() {
           side={THREE.DoubleSide}
         />
       </mesh>
-      {/* Far outer ring — faint */}
+      {/* Far outer ring */}
       <mesh>
-        <ringGeometry args={[1.3, 1.32, 64]} />
+        <ringGeometry args={[1.3, 1.32, 32]} />
         <meshBasicMaterial
           color={CYAN}
           transparent
@@ -377,7 +332,6 @@ export function WireframeBody() {
 
   return (
     <group ref={groupRef}>
-      {/* Body */}
       <group
         rotation={rotation}
         scale={[scale, scale, scale]}
@@ -385,14 +339,8 @@ export function WireframeBody() {
       >
         <WireframeMesh scene={scene} />
       </group>
-
-      {/* Scan sweep */}
       <ScanRing />
-
-      {/* Floating data particles */}
       <DataParticles />
-
-      {/* Multi-ring platform at feet */}
       <BasePlatform />
     </group>
   );
