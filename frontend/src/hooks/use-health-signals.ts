@@ -143,18 +143,29 @@ export function useHealthSignals(userId: string): HealthSignals {
     const latestResp = respValues[0] ?? null;
     const avgResp = computeAvg(respValues);
 
-    // HRV — prefer sleep summaries (nightly HRV), fallback to body summary
-    const hrvValues = sleepSummaries.map((s) => s.avg_hrv_sdnn_ms);
-    const latestHrvFromSleep = hrvValues[0] ?? null;
-    const avgHrvFromSleep = computeAvg(hrvValues);
+    // HRV — prefer recovery (Whoop RMSSD), fallback to sleep (Apple SDNN), then body
+    const hrvFromRecovery = recoverySummaries.map((r) => r.avg_hrv_sdnn_ms);
+    const hrvFromSleep = sleepSummaries.map((s) => s.avg_hrv_sdnn_ms);
+    const hrvValues = hrvFromRecovery.some((v) => v !== null) ? hrvFromRecovery : hrvFromSleep;
+    const latestHrvDirect = hrvValues[0] ?? null;
+    const avgHrvDirect = computeAvg(hrvValues);
     const hrvFromBody = bodySummary?.averaged?.avg_hrv_sdnn_ms ?? null;
-    const latestHrv = latestHrvFromSleep ?? hrvFromBody;
-    const avgHrv = avgHrvFromSleep ?? hrvFromBody;
+    const latestHrv = latestHrvDirect ?? hrvFromBody;
+    const avgHrv = avgHrvDirect ?? hrvFromBody;
+    const hrvProvider = hrvFromRecovery.some((v) => v !== null)
+      ? recoveryProvider
+      : (latestHrvDirect !== null ? sleepProvider : bodySummary?.source?.provider ?? null);
 
-    // Resting HR from body summary
-    const restingHrValue =
-      bodySummary?.averaged?.resting_heart_rate_bpm ?? null;
-    const bodyProvider = bodySummary?.source?.provider ?? null;
+    // Resting HR — prefer recovery (Whoop daily RHR), fallback to body summary (7d avg)
+    const rhrFromRecovery = recoverySummaries.map((r) => r.resting_heart_rate_bpm);
+    const latestRhrFromRecovery = rhrFromRecovery[0] ?? null;
+    const avgRhrFromRecovery = computeAvg(rhrFromRecovery);
+    const rhrFromBody = bodySummary?.averaged?.resting_heart_rate_bpm ?? null;
+    const restingHrValue = latestRhrFromRecovery ?? rhrFromBody;
+    const restingHrAvg = avgRhrFromRecovery ?? rhrFromBody;
+    const rhrProvider = latestRhrFromRecovery !== null
+      ? recoveryProvider
+      : bodySummary?.source?.provider ?? null;
 
     return {
       sleep: {
@@ -220,7 +231,7 @@ export function useHealthSignals(userId: string): HealthSignals {
         momentum: computeMomentum(latestHrv, hrvValues),
         color: SIGNAL_COLORS.hrv.hex,
         accentClass: SIGNAL_COLORS.hrv.tw,
-        provider: latestHrvFromSleep !== null ? sleepProvider : bodyProvider,
+        provider: hrvProvider,
       },
       restingHr: {
         label: 'Resting HR',
@@ -228,11 +239,11 @@ export function useHealthSignals(userId: string): HealthSignals {
           restingHrValue !== null ? Math.round(restingHrValue) : null,
         unit: 'bpm',
         avg14d:
-          restingHrValue !== null ? Math.round(restingHrValue) : null,
+          restingHrAvg !== null ? Math.round(restingHrAvg) : null,
         momentum: 50,
         color: SIGNAL_COLORS.restingHr.hex,
         accentClass: SIGNAL_COLORS.restingHr.tw,
-        provider: bodyProvider,
+        provider: rhrProvider,
       },
       spo2: {
         label: 'SpO2',
