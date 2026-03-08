@@ -261,7 +261,16 @@ class ImportService:
                 break
 
         if not sleep_data_points:
+            log_structured(self.log, "info", "No sleep_analysis data points found", provider="apple", action="apple_ae_sleep_debug", user_id=user_id)
             return []
+
+        # Debug: log first 3 raw data points to understand format
+        sample_dps = sleep_data_points[:3]
+        log_structured(
+            self.log, "info",
+            f"sleep_analysis: {len(sleep_data_points)} data points. Samples: {[{'value': dp.value, 'startDate': dp.startDate, 'endDate': dp.endDate, 'date': dp.date, 'qty': dp.qty, 'source': dp.source} for dp in sample_dps]}",
+            provider="apple", action="apple_ae_sleep_debug", user_id=user_id,
+        )
 
         # Parse and sort data points by start time
         parsed_stages: list[tuple[datetime, datetime, SleepPhase, str | None]] = []
