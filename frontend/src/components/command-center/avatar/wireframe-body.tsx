@@ -2,6 +2,7 @@ import { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const ROTATION_SPEED = 0.004;
 const TARGET_HEIGHT = 3.5;
@@ -84,7 +85,11 @@ function WireframeMesh() {
 
   const edgesGeometry = useMemo(() => {
     if (!posedGeometry) return null;
-    return new THREE.EdgesGeometry(posedGeometry, 20);
+    // Merge coincident vertices to eliminate UV seam splits that create
+    // thousands of false "hard edges" on the smooth body surface
+    const merged = mergeVertices(posedGeometry, 0.01);
+    merged.computeVertexNormals();
+    return new THREE.EdgesGeometry(merged, 30);
   }, [posedGeometry]);
 
   if (!posedGeometry || !edgesGeometry) return null;
