@@ -51,28 +51,49 @@ function computeModelTransform(
   const tallExtent = axes[0].extent;
 
   // 4. Bone density heuristic for head direction
-  //    Transform bone positions to world space (matching scene bounds space),
-  //    then count bones above/below midpoint on tallAxis.
+  //    Analyze in MESH-LOCAL space (boneInverses), not world space.
+  //    World bone positions are unreliable because meshWorldMatrix doesn't
+  //    capture the skeleton's internal rotations applied at render time.
   const boneInverses = skinned.skeleton.boneInverses;
-  const meshWorldMatrix = skinned.matrixWorld;
   const tempMat = new THREE.Matrix4();
-  const worldBonePositions: THREE.Vector3[] = [];
+  const localBonePositions: THREE.Vector3[] = [];
 
   for (let i = 0; i < boneInverses.length; i++) {
-    tempMat.copy(boneInverses[i]).invert().premultiply(meshWorldMatrix);
+    tempMat.copy(boneInverses[i]).invert();
     const pos = new THREE.Vector3();
     pos.setFromMatrixPosition(tempMat);
-    worldBonePositions.push(pos);
+    localBonePositions.push(pos);
   }
 
-  const boneMidpoint = center[tallAxis];
+  // Find the tall axis in bone-local space
+  const boneBox = new THREE.Box3();
+  for (const p of localBonePositions) boneBox.expandByPoint(p);
+  const boneSize = new THREE.Vector3();
+  const boneCenter = new THREE.Vector3();
+  boneBox.getSize(boneSize);
+  boneBox.getCenter(boneCenter);
+
+  const boneTallAxis =
+    boneSize.y >= boneSize.x && boneSize.y >= boneSize.z
+      ? 'y'
+      : boneSize.x >= boneSize.z
+        ? 'x'
+        : 'z';
+
+  // Count bones above/below midpoint on the bone's own tall axis
+  const boneMidpoint = boneCenter[boneTallAxis];
   let countAbove = 0;
   let countBelow = 0;
-  for (const p of worldBonePositions) {
-    if (p[tallAxis] >= boneMidpoint) countAbove++;
+  for (const p of localBonePositions) {
+    if (p[boneTallAxis] >= boneMidpoint) countAbove++;
     else countBelow++;
   }
-  const headSign = countAbove >= countBelow ? 1 : -1;
+  // +1 = head at +boneTallAxis, -1 = head at -boneTallAxis
+  const localHeadSign = countAbove >= countBelow ? 1 : -1;
+
+  // Map to scene space: if bone and scene share the same tall axis,
+  // head direction carries over directly. Otherwise default to +tallAxis.
+  const headSign = boneTallAxis === tallAxis ? localHeadSign : 1;
 
   // 5. Compute rotation to align tallAxis → Y-up with head pointing +Y
   let rx = 0,
@@ -100,18 +121,13 @@ function computeModelTransform(
     -rotatedCenter.z * scale,
   ];
 
-  // Temporary debug log — compare bone bounds vs scene bounds
-  const boneBox = new THREE.Box3();
-  for (const p of worldBonePositions) boneBox.expandByPoint(p);
-  const boneSize = new THREE.Vector3();
-  const boneCenter = new THREE.Vector3();
-  boneBox.getSize(boneSize);
-  boneBox.getCenter(boneCenter);
-
+  // Temporary debug log
   console.log('[WireframeBody] computeModelTransform:', {
-    boneCount: worldBonePositions.length,
+    boneCount: localBonePositions.length,
     tallAxis,
     tallExtent: tallExtent.toFixed(3),
+    boneTallAxis,
+    localHeadSign,
     headSign,
     bonesAbove: countAbove,
     bonesBelow: countBelow,
@@ -122,7 +138,7 @@ function computeModelTransform(
       center: [center.x.toFixed(3), center.y.toFixed(3), center.z.toFixed(3)],
       size: [size.x.toFixed(3), size.y.toFixed(3), size.z.toFixed(3)],
     },
-    boneBoundsWorld: {
+    boneBoundsLocal: {
       center: [
         boneCenter.x.toFixed(3),
         boneCenter.y.toFixed(3),
@@ -133,11 +149,6 @@ function computeModelTransform(
         boneSize.y.toFixed(3),
         boneSize.z.toFixed(3),
       ],
-    },
-    sceneRootTransform: {
-      scale: [scene.scale.x, scene.scale.y, scene.scale.z],
-      position: [scene.position.x, scene.position.y, scene.position.z],
-      rotation: [scene.rotation.x, scene.rotation.y, scene.rotation.z],
     },
   });
 
@@ -211,7 +222,8 @@ export function WireframeBody() {
   if (!transform) return null;
 
   const { rotation, scale, position } = transform;
-  const feetY = position[1] - TARGET_HEIGHT / 2;
+  // Transform always centers model at origin, so feet are at -TARGET_HEIGHT/2
+  const feetY = -TARGET_HEIGHT / 2;
 
   return (
     <group ref={groupRef}>
