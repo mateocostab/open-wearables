@@ -274,24 +274,46 @@ class ImportService:
 
         # Parse and sort data points by start time
         parsed_stages: list[tuple[datetime, datetime, SleepPhase, str | None]] = []
+        skipped_no_fields = 0
+        skipped_no_phase = 0
+        skipped_bad_time = 0
+        skipped_end_before_start = 0
+        unique_values: set[str] = set()
+
         for dp in sleep_data_points:
+            if dp.value:
+                unique_values.add(dp.value)
+
             if not dp.value or not dp.startDate or not dp.endDate:
+                skipped_no_fields += 1
                 continue
 
             phase = get_apple_sleep_phase(dp.value)
             if phase is None:
+                skipped_no_phase += 1
                 continue
 
             try:
                 start = self._dt(dp.startDate)
                 end = self._dt(dp.endDate)
-            except (ValueError, TypeError):
+            except (ValueError, TypeError) as e:
+                skipped_bad_time += 1
+                log_structured(self.log, "warning", f"Sleep date parse error: {e}, startDate={dp.startDate}, endDate={dp.endDate}", provider="apple", action="apple_ae_sleep_parse_error", user_id=user_id)
                 continue
 
             if end <= start:
+                skipped_end_before_start += 1
                 continue
 
             parsed_stages.append((start, end, phase, dp.source))
+
+        log_structured(
+            self.log, "info",
+            f"Sleep parsing: {len(parsed_stages)} valid stages from {len(sleep_data_points)} data points. "
+            f"Skipped: no_fields={skipped_no_fields}, no_phase={skipped_no_phase} (unique values: {unique_values}), "
+            f"bad_time={skipped_bad_time}, end<=start={skipped_end_before_start}",
+            provider="apple", action="apple_ae_sleep_parse_result", user_id=user_id,
+        )
 
         if not parsed_stages:
             return []
@@ -315,8 +337,15 @@ class ImportService:
 
         sessions.append(current_session)
 
+        log_structured(
+            self.log, "info",
+            f"Sleep sessions: {len(sessions)} sessions grouped from {len(parsed_stages)} stages",
+            provider="apple", action="apple_ae_sleep_sessions", user_id=user_id,
+        )
+
         # Build EventRecord + SleepDetails per session
         results = []
+        skipped_short = 0
         for session_stages in sessions:
             session_start = min(s[0] for s in session_stages)
             session_end = max(s[1] for s in session_stages)
@@ -324,6 +353,7 @@ class ImportService:
 
             # Skip very short sessions (< 30 min) — likely noise
             if total_duration < 1800:
+                skipped_short += 1
                 continue
 
             # Accumulate stage durations
@@ -385,6 +415,21 @@ class ImportService:
             )
 
             results.append((record, detail))
+
+            log_structured(
+                self.log, "info",
+                f"Sleep session built: {session_start} -> {session_end}, "
+                f"duration={int(total_duration//60)}min, stages={len(session_stages)}, "
+                f"deep={int(deep_sec//60)}min, light={int(light_sec//60)}min, rem={int(rem_sec//60)}min, "
+                f"awake={int(awake_sec//60)}min, is_nap={is_nap}",
+                provider="apple", action="apple_ae_sleep_session_built", user_id=user_id,
+            )
+
+        log_structured(
+            self.log, "info",
+            f"Sleep records total: {len(results)} created, {skipped_short} skipped (too short)",
+            provider="apple", action="apple_ae_sleep_final", user_id=user_id,
+        )
 
         return results
 
