@@ -2,9 +2,9 @@ import { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
-import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 
 const ROTATION_SPEED = 0.004;
+const TARGET_HEIGHT = 3.5;
 
 function WireframeMesh() {
   const { scene } = useGLTF('/models/human-body.glb');
@@ -31,22 +31,64 @@ function WireframeMesh() {
     []
   );
 
-  const { wireScene, glowScene } = useMemo(() => {
-    const wClone = SkeletonUtils.clone(scene);
-    wClone.traverse((child) => {
-      if (child instanceof THREE.Mesh) child.material = wireframeMaterial;
+  const posedGeometry = useMemo(() => {
+    // Find the SkinnedMesh in the loaded scene
+    let skinned: THREE.SkinnedMesh | null = null;
+    scene.updateWorldMatrix(true, true);
+    scene.traverse((child) => {
+      if (child instanceof THREE.SkinnedMesh && !skinned) {
+        skinned = child as THREE.SkinnedMesh;
+      }
     });
-    const gClone = SkeletonUtils.clone(scene);
-    gClone.traverse((child) => {
-      if (child instanceof THREE.Mesh) child.material = glowMaterial;
-    });
-    return { wireScene: wClone, glowScene: gClone };
-  }, [scene, wireframeMaterial, glowMaterial]);
+    if (!skinned) return null;
+
+    skinned.skeleton.update();
+
+    // Bake skinned vertex positions into static geometry
+    // This sidesteps SkinnedMesh double-rotation issues with parent groups
+    const geom = skinned.geometry.clone();
+    const pos = geom.getAttribute('position') as THREE.BufferAttribute;
+    const v = new THREE.Vector4();
+
+    for (let i = 0; i < pos.count; i++) {
+      v.set(pos.getX(i), pos.getY(i), pos.getZ(i), 1);
+      skinned.boneTransform(i, v);
+      pos.setXYZ(i, v.x, v.y, v.z);
+    }
+    pos.needsUpdate = true;
+    geom.computeBoundingBox();
+    geom.computeVertexNormals();
+
+    const box = geom.boundingBox!;
+    const size = new THREE.Vector3();
+    const center = new THREE.Vector3();
+    box.getSize(size);
+    box.getCenter(center);
+
+    // Center at origin
+    geom.translate(-center.x, -center.y, -center.z);
+
+    // Rotate to stand upright: put longest axis along Y
+    if (size.z >= size.x && size.z >= size.y) {
+      geom.rotateX(Math.PI / 2);
+    } else if (size.x >= size.y && size.x >= size.z) {
+      geom.rotateZ(Math.PI / 2);
+    }
+
+    // Scale to target height
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const s = TARGET_HEIGHT / maxDim;
+    geom.scale(s, s, s);
+
+    return geom;
+  }, [scene]);
+
+  if (!posedGeometry) return null;
 
   return (
     <group>
-      <primitive object={wireScene} />
-      <primitive object={glowScene} />
+      <mesh geometry={posedGeometry} material={wireframeMaterial} />
+      <mesh geometry={posedGeometry} material={glowMaterial} />
     </group>
   );
 }
@@ -62,13 +104,10 @@ export function WireframeBody() {
 
   return (
     <group ref={groupRef}>
-      {/* Rotate +90° Z to stand the body upright (body lies along X in deformed mesh) */}
-      <group rotation={[0, 0, Math.PI / 2]} scale={0.15} position={[0, 0, 0]}>
-        <WireframeMesh />
-      </group>
+      <WireframeMesh />
 
-      {/* Base ring */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.3, 0]}>
+      {/* Base ring at feet */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -TARGET_HEIGHT / 2, 0]}>
         <ringGeometry args={[0.8, 0.85, 64]} />
         <meshBasicMaterial
           color="#00E5FF"
