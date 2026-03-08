@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils';
 
-export type DateRangeValue = 7 | 30 | 90 | 365;
+export type DateRangeValue = 1 | 7 | 14 | 30 | 90 | 365;
 
 interface DateRangeSelectorProps {
   value: DateRangeValue;

@@ -1,9 +1,10 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { format } from 'date-fns';
 import { Sparkles, Command } from 'lucide-react';
 import { useHealthSignals } from '@/hooks/use-health-signals';
 import { useBodySummary } from '@/hooks/api/use-health';
 import { useIsMobile } from '@/hooks/use-mobile';
+import type { DateRangeValue } from '@/components/ui/date-range-selector';
 import { SignalCards } from './signal-cards';
 import { SignalMomentum } from './signal-momentum';
 import { DataCoverage } from './data-coverage';
@@ -15,13 +16,21 @@ const AvatarCanvas = lazy(() =>
   import('./avatar/avatar-canvas').then((m) => ({ default: m.AvatarCanvas }))
 );
 
+const OVERVIEW_RANGES: { value: DateRangeValue; label: string }[] = [
+  { value: 1, label: 'Today' },
+  { value: 7, label: '7d' },
+  { value: 14, label: '14d' },
+  { value: 30, label: '30d' },
+];
+
 interface CommandCenterLayoutProps {
   userId: string;
 }
 
 export function CommandCenterLayout({ userId }: CommandCenterLayoutProps) {
+  const [dateRange, setDateRange] = useState<DateRangeValue>(14);
   // Single hook call — signals passed to all children via props
-  const signals = useHealthSignals(userId);
+  const signals = useHealthSignals(userId, dateRange);
   const { data: bodySummary } = useBodySummary(userId, { average_period: 7 });
   const isMobile = useIsMobile();
 
@@ -79,13 +88,30 @@ export function CommandCenterLayout({ userId }: CommandCenterLayoutProps) {
             </h1>
           </div>
           <p className="text-sm text-zinc-500 mt-1">
-            Dashboard &middot; 14-day health overview
+            Dashboard &middot; {dateRange === 1 ? "Today's" : `${dateRange}-day`} health overview
           </p>
         </div>
-        <div className="hidden md:flex items-center gap-2 text-xs text-zinc-500 px-3 py-1.5 rounded-lg border border-zinc-800 bg-zinc-900/50">
-          <Command className="h-3 w-3" aria-hidden="true" />
-          Quick Command
-          <kbd className="text-[10px] text-zinc-500 ml-1">&#8984;K</kbd>
+        <div className="flex items-center gap-3">
+          {/* Date range selector */}
+          <div className="flex items-center gap-1 bg-zinc-800/50 p-1 rounded-lg border border-zinc-800">
+            {OVERVIEW_RANGES.map((r) => (
+              <button
+                key={r.value}
+                onClick={() => setDateRange(r.value)}
+                className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                  dateRange === r.value
+                    ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30'
+                    : 'text-zinc-400 hover:text-zinc-300 hover:bg-zinc-800'
+                }`}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+          <div className="hidden md:flex items-center gap-2 text-xs text-zinc-500 px-3 py-1.5 rounded-lg border border-zinc-800 bg-zinc-900/50">
+            <Command className="h-3 w-3" aria-hidden="true" />
+            <kbd className="text-[10px] text-zinc-500">&#8984;K</kbd>
+          </div>
         </div>
       </header>
 
@@ -101,7 +127,7 @@ export function CommandCenterLayout({ userId }: CommandCenterLayoutProps) {
                   At-a-Glance Snapshot
                 </h2>
                 <p className="text-[11px] text-zinc-500 mt-0.5">
-                  Today's key signals at a glance.
+                  {dateRange === 1 ? "Today's" : `Last ${dateRange} days`} key signals.
                 </p>
               </div>
               <span className="text-[11px] text-zinc-500 px-2 py-1 rounded-md bg-zinc-800/50 border border-zinc-800">
@@ -109,7 +135,7 @@ export function CommandCenterLayout({ userId }: CommandCenterLayoutProps) {
                 {format(new Date(), 'yyyy-MM-dd')}
               </span>
             </div>
-            <SignalCards signals={signals} />
+            <SignalCards signals={signals} days={dateRange} />
           </section>
 
           {/* Momentum + Coverage side by side */}

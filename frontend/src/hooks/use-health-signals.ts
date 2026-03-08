@@ -6,6 +6,7 @@ import {
   useBodySummary,
 } from '@/hooks/api/use-health';
 import { useDateRange } from '@/hooks/use-date-range';
+import type { DateRangeValue } from '@/components/ui/date-range-selector';
 import { SIGNAL_COLORS } from '@/lib/constants/signal-colors';
 
 export interface HealthSignal {
@@ -55,16 +56,17 @@ function computeMomentum(
   );
 }
 
-export function useHealthSignals(userId: string): HealthSignals {
-  const { startDate, endDate } = useDateRange(14);
+export function useHealthSignals(userId: string, days: DateRangeValue = 14): HealthSignals {
+  const { startDate, endDate } = useDateRange(days);
+
+  const limit = Math.max(days, 14);
 
   const { data: sleepData, isLoading: sleepLoading } = useSleepSummaries(
     userId,
     {
       start_date: startDate,
       end_date: endDate,
-      limit: 14,
-      sort_order: 'desc',
+      limit,
     }
   );
 
@@ -72,16 +74,14 @@ export function useHealthSignals(userId: string): HealthSignals {
     useActivitySummaries(userId, {
       start_date: startDate,
       end_date: endDate,
-      limit: 14,
-      sort_order: 'desc',
+      limit: Math.min(limit, 400),
     });
 
   const { data: recoveryData, isLoading: recoveryLoading } =
     useRecoverySummaries(userId, {
       start_date: startDate,
       end_date: endDate,
-      limit: 14,
-      sort_order: 'desc',
+      limit,
     });
 
   const { data: bodySummary, isLoading: bodyLoading } = useBodySummary(

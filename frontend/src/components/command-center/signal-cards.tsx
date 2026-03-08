@@ -5,6 +5,7 @@ import type { HealthSignals } from '@/hooks/use-health-signals';
 
 interface SignalCardsProps {
   signals: HealthSignals;
+  days?: number;
 }
 
 const containerVariants = {
@@ -24,7 +25,7 @@ const itemVariants = {
   },
 } as const;
 
-export function SignalCards({ signals }: SignalCardsProps) {
+export function SignalCards({ signals, days = 14 }: SignalCardsProps) {
   // Whoop-first: lead with Whoop's core metrics, Apple fills gaps
   const cards = [
     signals.recovery,
@@ -81,7 +82,7 @@ export function SignalCards({ signals }: SignalCardsProps) {
           </div>
 
           <p className="text-[11px] text-zinc-500 mt-1 truncate">
-            14d avg:{' '}
+            {days}d avg:{' '}
             {signal.avg14d !== null ? (
               <span className="text-zinc-400">
                 {signal.unit === 'hrs'
