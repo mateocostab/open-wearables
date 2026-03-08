@@ -22,7 +22,7 @@ export function AvatarCanvas({
   return (
     <div className="relative h-full min-h-[300px] w-full">
       <Canvas
-        camera={{ position: [0, 0, 20], fov: 45, near: 0.1, far: 200 }}
+        camera={{ position: [0, 0, 20], fov: 55, near: 0.1, far: 200 }}
         frameloop="always"
         dpr={[1, 1.5]}
         style={{ background: 'transparent' }}

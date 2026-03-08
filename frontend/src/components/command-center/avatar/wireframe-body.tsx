@@ -69,7 +69,7 @@ export function WireframeBody() {
     // Move the camera to see the whole model — tighter fit to fill the card
     const maxDim = Math.max(size.x, size.y, size.z);
     const fov = (camera as THREE.PerspectiveCamera).fov * (Math.PI / 180);
-    const dist = maxDim / (2 * Math.tan(fov / 2)) * 1.15;
+    const dist = maxDim / (2 * Math.tan(fov / 2)) * 1.05;
 
     camera.position.set(center.x, center.y, center.z + dist);
     camera.lookAt(center);
