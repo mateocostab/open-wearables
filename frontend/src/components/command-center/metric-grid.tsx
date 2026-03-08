@@ -12,6 +12,22 @@ export function MetricGrid({ signals }: MetricGridProps) {
       role="list"
       aria-label="Detailed health metrics"
     >
+      {/* Whoop-first: Recovery, Sleep, HRV, RHR, SpO2 */}
+      <MetricRingCard
+        label="Recovery"
+        sublabel={
+          signals.recovery.avg14d !== null
+            ? `${signals.recovery.avg14d}% avg`
+            : undefined
+        }
+        value={signals.recovery.value}
+        unit="%"
+        max={100}
+        color={signals.recovery.color}
+        avg={signals.recovery.avg14d}
+        provider={signals.recovery.provider}
+      />
+
       <MetricRingCard
         label="Sleep"
         sublabel={signals.sleep.value !== null ? 'avg per night' : undefined}
@@ -36,36 +52,6 @@ export function MetricGrid({ signals }: MetricGridProps) {
         color={signals.sleepEfficiency.color}
         avg={signals.sleepEfficiency.avg14d}
         provider={signals.sleepEfficiency.provider}
-      />
-
-      <MetricRingCard
-        label="Active Calories"
-        sublabel={
-          signals.activity.avg14d !== null
-            ? `avg ${Math.round(signals.activity.avg14d)} daily`
-            : undefined
-        }
-        value={signals.activity.value}
-        unit="kcal"
-        max={1000}
-        color={signals.activity.color}
-        avg={signals.activity.avg14d}
-        provider={signals.activity.provider}
-      />
-
-      <MetricRingCard
-        label="Steps"
-        sublabel={
-          signals.steps.avg14d !== null
-            ? `avg ${Math.round(signals.steps.avg14d).toLocaleString()} daily`
-            : undefined
-        }
-        value={signals.steps.value}
-        unit=""
-        max={15000}
-        color={signals.steps.color}
-        avg={signals.steps.avg14d}
-        provider={signals.steps.provider}
       />
 
       <MetricRingCard
@@ -111,6 +97,37 @@ export function MetricGrid({ signals }: MetricGridProps) {
         color={signals.spo2.color}
         avg={signals.spo2.avg14d}
         provider={signals.spo2.provider}
+      />
+
+      {/* Apple fills gaps: Activity, Steps, Resp Rate */}
+      <MetricRingCard
+        label="Active Calories"
+        sublabel={
+          signals.activity.avg14d !== null
+            ? `avg ${Math.round(signals.activity.avg14d)} daily`
+            : undefined
+        }
+        value={signals.activity.value}
+        unit="kcal"
+        max={1000}
+        color={signals.activity.color}
+        avg={signals.activity.avg14d}
+        provider={signals.activity.provider}
+      />
+
+      <MetricRingCard
+        label="Steps"
+        sublabel={
+          signals.steps.avg14d !== null
+            ? `avg ${Math.round(signals.steps.avg14d).toLocaleString()} daily`
+            : undefined
+        }
+        value={signals.steps.value}
+        unit=""
+        max={15000}
+        color={signals.steps.color}
+        avg={signals.steps.avg14d}
+        provider={signals.steps.provider}
       />
 
       <MetricRingCard

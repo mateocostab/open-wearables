@@ -122,21 +122,23 @@ export function useHealthSignals(userId: string): HealthSignals {
     const latestSteps = stepValues[0] ?? null;
     const avgSteps = computeAvg(stepValues);
 
-    // Recovery score
+    // Recovery score — endpoint returns asc order, take last (most recent) entry
     const recoveryScores = recoverySummaries.map((r) => r.recovery_score);
-    const latestRecovery = recoveryScores[0] ?? null;
+    const mostRecentRecovery = recoverySummaries[recoverySummaries.length - 1];
+    const latestRecovery = mostRecentRecovery?.recovery_score ?? null;
     const avgRecovery = computeAvg(recoveryScores);
-    const recoveryProvider = recoverySummaries[0]?.source?.provider ?? null;
+    const recoveryProvider = mostRecentRecovery?.source?.provider ?? null;
 
-    // SpO2 — prefer recovery summaries, fallback to sleep summaries
+    // SpO2 — prefer recovery (Whoop), fallback to sleep (Apple)
     const spo2FromRecovery = recoverySummaries.map((r) => r.avg_spo2_percent);
     const spo2FromSleep = sleepSummaries.map((s) => s.avg_spo2_percent);
-    const spo2Values = spo2FromRecovery.some((v) => v !== null) ? spo2FromRecovery : spo2FromSleep;
-    const latestSpo2 = spo2Values[0] ?? null;
+    const hasSpo2Recovery = spo2FromRecovery.some((v) => v !== null);
+    const spo2Values = hasSpo2Recovery ? spo2FromRecovery : spo2FromSleep;
+    const latestSpo2 = hasSpo2Recovery
+      ? (mostRecentRecovery?.avg_spo2_percent ?? null)
+      : (spo2FromSleep[0] ?? null);
     const avgSpo2 = computeAvg(spo2Values);
-    const spo2Provider = spo2FromRecovery.some((v) => v !== null)
-      ? recoveryProvider
-      : sleepProvider;
+    const spo2Provider = hasSpo2Recovery ? recoveryProvider : sleepProvider;
 
     // Respiratory rate from sleep summaries
     const respValues = sleepSummaries.map((s) => s.avg_respiratory_rate);
@@ -146,8 +148,11 @@ export function useHealthSignals(userId: string): HealthSignals {
     // HRV — prefer recovery (Whoop RMSSD), fallback to sleep (Apple SDNN), then body
     const hrvFromRecovery = recoverySummaries.map((r) => r.avg_hrv_sdnn_ms);
     const hrvFromSleep = sleepSummaries.map((s) => s.avg_hrv_sdnn_ms);
-    const hrvValues = hrvFromRecovery.some((v) => v !== null) ? hrvFromRecovery : hrvFromSleep;
-    const latestHrvDirect = hrvValues[0] ?? null;
+    const hasHrvRecovery = hrvFromRecovery.some((v) => v !== null);
+    const hrvValues = hasHrvRecovery ? hrvFromRecovery : hrvFromSleep;
+    const latestHrvDirect = hasHrvRecovery
+      ? (mostRecentRecovery?.avg_hrv_sdnn_ms ?? null)
+      : (hrvFromSleep[0] ?? null);
     const avgHrvDirect = computeAvg(hrvValues);
     const hrvFromBody = bodySummary?.averaged?.avg_hrv_sdnn_ms ?? null;
     const latestHrv = latestHrvDirect ?? hrvFromBody;
@@ -158,7 +163,7 @@ export function useHealthSignals(userId: string): HealthSignals {
 
     // Resting HR — prefer recovery (Whoop daily RHR), fallback to body summary (7d avg)
     const rhrFromRecovery = recoverySummaries.map((r) => r.resting_heart_rate_bpm);
-    const latestRhrFromRecovery = rhrFromRecovery[0] ?? null;
+    const latestRhrFromRecovery = mostRecentRecovery?.resting_heart_rate_bpm ?? null;
     const avgRhrFromRecovery = computeAvg(rhrFromRecovery);
     const rhrFromBody = bodySummary?.averaged?.resting_heart_rate_bpm ?? null;
     const restingHrValue = latestRhrFromRecovery ?? rhrFromBody;

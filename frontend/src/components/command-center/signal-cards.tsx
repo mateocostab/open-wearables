@@ -25,12 +25,13 @@ const itemVariants = {
 } as const;
 
 export function SignalCards({ signals }: SignalCardsProps) {
+  // Whoop-first: lead with Whoop's core metrics, Apple fills gaps
   const cards = [
+    signals.recovery,
     signals.sleep,
-    signals.activity,
-    signals.strain,
     signals.hrv,
     signals.restingHr,
+    signals.activity,
   ];
 
   return (

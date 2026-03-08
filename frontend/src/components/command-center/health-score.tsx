@@ -9,11 +9,12 @@ interface HealthScoreProps {
   signals: HealthSignals;
 }
 
+// Whoop-first: Recovery leads, then Sleep, Heart, Activity
 const SEGMENTS: readonly { key: string; label: string; icon: LucideIcon; color: string }[] = [
-  { key: 'sleep', label: 'Sleep', icon: Moon, color: SCORE_SEGMENT_COLORS.sleep },
-  { key: 'activity', label: 'Activity', icon: Zap, color: SCORE_SEGMENT_COLORS.activity },
-  { key: 'heart', label: 'Heart', icon: HeartPulse, color: SCORE_SEGMENT_COLORS.heart },
   { key: 'recovery', label: 'Recovery', icon: ShieldCheck, color: SCORE_SEGMENT_COLORS.recovery },
+  { key: 'sleep', label: 'Sleep', icon: Moon, color: SCORE_SEGMENT_COLORS.sleep },
+  { key: 'heart', label: 'Heart', icon: HeartPulse, color: SCORE_SEGMENT_COLORS.heart },
+  { key: 'activity', label: 'Activity', icon: Zap, color: SCORE_SEGMENT_COLORS.activity },
 ];
 
 const RADIUS = 70;

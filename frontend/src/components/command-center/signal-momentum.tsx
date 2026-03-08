@@ -6,7 +6,8 @@ interface SignalMomentumProps {
 }
 
 export function SignalMomentum({ signals }: SignalMomentumProps) {
-  const bars = [signals.sleep, signals.activity, signals.recovery, signals.hrv, signals.restingHr];
+  // Whoop-first order matches signal cards
+  const bars = [signals.recovery, signals.sleep, signals.hrv, signals.restingHr, signals.activity];
 
   return (
     <div className="glass-panel p-4 space-y-3" role="region" aria-label="Signal momentum">
