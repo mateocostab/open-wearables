@@ -90,7 +90,7 @@ export function DataMarkers({
       unit: 'bpm',
       color: '#EF4444',
       bodyAnchor: [-0.3, 0.4, 0],
-      labelOffset: [-2.2, 0.6, 0],
+      labelOffset: [-1.5, 0.5, 0],
     });
   }
 
@@ -102,7 +102,7 @@ export function DataMarkers({
       unit: 'ms',
       color: '#A78BFA',
       bodyAnchor: [0.3, 0.2, 0],
-      labelOffset: [2.2, 0.3, 0],
+      labelOffset: [1.5, 0.2, 0],
     });
   }
 
@@ -114,7 +114,7 @@ export function DataMarkers({
       unit: 'hrs',
       color: '#818CF8',
       bodyAnchor: [0.2, 1.4, 0],
-      labelOffset: [2.2, 1.5, 0],
+      labelOffset: [1.5, 1.4, 0],
     });
   }
 
@@ -126,7 +126,7 @@ export function DataMarkers({
       unit: 'kcal',
       color: '#34D399',
       bodyAnchor: [-0.4, -0.7, 0],
-      labelOffset: [-2.2, -0.6, 0],
+      labelOffset: [-1.5, -0.7, 0],
     });
   }
 
@@ -151,7 +151,7 @@ export function DataMarkers({
           {/* Floating label */}
           <Html
             position={marker.labelOffset}
-            distanceFactor={5}
+            distanceFactor={6}
             zIndexRange={[10, 0]}
             center
           >

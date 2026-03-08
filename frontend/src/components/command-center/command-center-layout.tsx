@@ -121,7 +121,7 @@ export function CommandCenterLayout({ userId }: CommandCenterLayoutProps) {
 
         {/* Right: Biometric Avatar — hidden only on phones, visible on tablet+ */}
         {!isMobile && (
-          <section className="hidden md:flex glass-panel p-4 relative overflow-hidden flex-col" aria-label="Biometric avatar">
+          <section className="hidden md:flex glass-panel p-4 relative overflow-visible flex-col" aria-label="Biometric avatar">
             <div className="flex items-center justify-between mb-2">
               <div>
                 <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
