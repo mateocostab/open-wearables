@@ -41,6 +41,7 @@ AE_METRIC_TO_SERIES_TYPE: dict[str, SeriesType] = {
     "walking_heart_rate_average": SeriesType.walking_heart_rate_average,
     # Blood & Respiratory
     "oxygen_saturation": SeriesType.oxygen_saturation,
+    "blood_oxygen_saturation": SeriesType.oxygen_saturation,
     "respiratory_rate": SeriesType.respiratory_rate,
     "blood_glucose": SeriesType.blood_glucose,
     # Body Composition
@@ -64,8 +65,10 @@ AE_METRIC_TO_SERIES_TYPE: dict[str, SeriesType] = {
     "apple_exercise_time": SeriesType.exercise_time,
     "exercise_time": SeriesType.exercise_time,
     "flights_climbed": SeriesType.flights_climbed,
+    "physical_effort": SeriesType.physical_effort,
     # Activity - Distance
     "distance_walking_running": SeriesType.distance_walking_running,
+    "walking_running_distance": SeriesType.distance_walking_running,
     "distance_cycling": SeriesType.distance_cycling,
     "distance_swimming": SeriesType.distance_swimming,
     # Activity - Walking Metrics
@@ -75,7 +78,9 @@ AE_METRIC_TO_SERIES_TYPE: dict[str, SeriesType] = {
     "walking_asymmetry_percentage": SeriesType.walking_asymmetry_percentage,
     "walking_steadiness": SeriesType.walking_steadiness,
     "stair_descent_speed": SeriesType.stair_descent_speed,
+    "stair_speed_down": SeriesType.stair_descent_speed,
     "stair_ascent_speed": SeriesType.stair_ascent_speed,
+    "stair_speed_up": SeriesType.stair_ascent_speed,
     # Activity - Running Metrics
     "running_power": SeriesType.running_power,
     "running_speed": SeriesType.running_speed,
