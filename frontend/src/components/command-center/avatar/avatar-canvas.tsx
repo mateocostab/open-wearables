@@ -20,7 +20,7 @@ export function AvatarCanvas({
   activeCalories,
 }: AvatarCanvasProps) {
   return (
-    <div className="relative h-full min-h-[300px] w-full">
+    <div className="relative h-full w-full">
       <Canvas
         camera={{ position: [0, 0, 20], fov: 55, near: 0.1, far: 200 }}
         frameloop="always"

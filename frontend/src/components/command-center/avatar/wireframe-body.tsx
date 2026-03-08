@@ -66,13 +66,21 @@ export function WireframeBody() {
     const center = box.getCenter(new THREE.Vector3());
     const size = box.getSize(new THREE.Vector3());
 
-    // Move the camera to see the whole model — tighter fit to fill the card
-    const maxDim = Math.max(size.x, size.y, size.z);
-    const fov = (camera as THREE.PerspectiveCamera).fov * (Math.PI / 180);
-    const dist = maxDim / (2 * Math.tan(fov / 2)) * 1.05;
+    // Use the visible extent (Y height and X width) to fit the model,
+    // NOT the Z depth (which is huge due to the model's orientation).
+    const cam = camera as THREE.PerspectiveCamera;
+    const fov = cam.fov * (Math.PI / 180);
+    const aspect = cam.aspect || 0.75;
 
-    camera.position.set(center.x, center.y, center.z + dist);
-    camera.lookAt(center);
+    // Distance needed to fit height
+    const distForHeight = (size.y / 2) / Math.tan(fov / 2);
+    // Distance needed to fit width
+    const distForWidth = (size.x / 2) / Math.tan(fov / 2) / aspect;
+    // Use whichever is larger + small padding
+    const dist = Math.max(distForHeight, distForWidth) * 1.15;
+
+    camera.position.set(center.x, center.y, box.max.z + dist);
+    camera.lookAt(center.x, center.y, center.z);
     camera.updateProjectionMatrix();
   }, [wireScene, camera]);
 
