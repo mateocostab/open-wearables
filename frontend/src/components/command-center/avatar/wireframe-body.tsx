@@ -15,13 +15,15 @@ interface ModelTransform {
 
 /**
  * Compute rotation, scale, and position to orient a skinned model upright at origin.
- * Uses boneInverses (inverse bind matrices from the GLB) — no renderer needed.
+ *
+ * Uses Box3.setFromObject for scale/position (captures full scene hierarchy transforms).
+ * Uses boneInverses for orientation heuristic (head direction via bone density).
  */
 function computeModelTransform(
   scene: THREE.Object3D,
   targetHeight: number
 ): ModelTransform | null {
-  // 1. Find first SkinnedMesh
+  // 1. Find first SkinnedMesh for bone analysis
   let skinned: THREE.SkinnedMesh | null = null;
   scene.traverse((child) => {
     if (child instanceof THREE.SkinnedMesh && !skinned) {
@@ -30,31 +32,15 @@ function computeModelTransform(
   });
   if (!skinned) return null;
 
-  const skeleton = skinned.skeleton;
-  const boneInverses = skeleton.boneInverses;
-
-  // 2. Extract bind-pose bone positions by inverting each boneInverse matrix
-  const bonePositions: THREE.Vector3[] = [];
-  const tempMat = new THREE.Matrix4();
-
-  for (let i = 0; i < boneInverses.length; i++) {
-    tempMat.copy(boneInverses[i]).invert();
-    const pos = new THREE.Vector3();
-    pos.setFromMatrixPosition(tempMat);
-    bonePositions.push(pos);
-  }
-
-  // 3. Build bounding box from bone positions
-  const box = new THREE.Box3();
-  for (const p of bonePositions) {
-    box.expandByPoint(p);
-  }
+  // 2. Scene bounds via Box3.setFromObject (includes all hierarchy transforms)
+  scene.updateWorldMatrix(true, true);
+  const sceneBox = new THREE.Box3().setFromObject(scene);
   const size = new THREE.Vector3();
   const center = new THREE.Vector3();
-  box.getSize(size);
-  box.getCenter(center);
+  sceneBox.getSize(size);
+  sceneBox.getCenter(center);
 
-  // 4. Identify tallest axis
+  // 3. Identify tallest axis from scene bounds
   const axes: Array<{ axis: 'x' | 'y' | 'z'; extent: number }> = [
     { axis: 'x', extent: size.x },
     { axis: 'y', extent: size.y },
@@ -64,45 +50,48 @@ function computeModelTransform(
   const tallAxis = axes[0].axis;
   const tallExtent = axes[0].extent;
 
-  // 5. Bone density heuristic for head direction:
-  //    The half with MORE bones = head side (spine chain, arms, hands, fingers
-  //    contribute many more bones than legs/feet)
-  const midpoint = center[tallAxis];
+  // 4. Bone density heuristic for head direction
+  //    Transform bone positions to world space (matching scene bounds space),
+  //    then count bones above/below midpoint on tallAxis.
+  const boneInverses = skinned.skeleton.boneInverses;
+  const meshWorldMatrix = skinned.matrixWorld;
+  const tempMat = new THREE.Matrix4();
+  const worldBonePositions: THREE.Vector3[] = [];
+
+  for (let i = 0; i < boneInverses.length; i++) {
+    tempMat.copy(boneInverses[i]).invert().premultiply(meshWorldMatrix);
+    const pos = new THREE.Vector3();
+    pos.setFromMatrixPosition(tempMat);
+    worldBonePositions.push(pos);
+  }
+
+  const boneMidpoint = center[tallAxis];
   let countAbove = 0;
   let countBelow = 0;
-  for (const p of bonePositions) {
-    if (p[tallAxis] >= midpoint) countAbove++;
+  for (const p of worldBonePositions) {
+    if (p[tallAxis] >= boneMidpoint) countAbove++;
     else countBelow++;
   }
-  // headSign: +1 if head is in the positive direction of tallAxis, -1 otherwise
   const headSign = countAbove >= countBelow ? 1 : -1;
 
-  // 6. Compute rotation to align tallAxis → Y-up with head pointing +Y
+  // 5. Compute rotation to align tallAxis → Y-up with head pointing +Y
   let rx = 0,
     ry = 0,
     rz = 0;
   if (tallAxis === 'z') {
-    // Z is tall → rotate around X to bring Z to Y
-    // headSign > 0: +Z has more bones (head), rotate -90° around X
-    // headSign < 0: -Z has more bones (head), rotate +90° around X
     rx = headSign > 0 ? -Math.PI / 2 : Math.PI / 2;
   } else if (tallAxis === 'x') {
-    // X is tall → rotate around Z to bring X to Y
     rz = headSign > 0 ? Math.PI / 2 : -Math.PI / 2;
-  } else {
-    // Y is already tall
-    if (headSign < 0) {
-      // Head is in -Y, flip 180° around Z
-      rz = Math.PI;
-    }
+  } else if (headSign < 0) {
+    rz = Math.PI;
   }
 
   const rotation: [number, number, number] = [rx, ry, rz];
 
-  // 7. Compute uniform scale
+  // 6. Compute uniform scale from scene bounds
   const scale = targetHeight / tallExtent;
 
-  // 8. Compute position offset: rotate center, negate, then scale
+  // 7. Compute position offset: rotate center, negate, scale
   const rotEuler = new THREE.Euler(rx, ry, rz);
   const rotatedCenter = center.clone().applyEuler(rotEuler);
   const position: [number, number, number] = [
@@ -111,9 +100,16 @@ function computeModelTransform(
     -rotatedCenter.z * scale,
   ];
 
-  // Temporary debug log
+  // Temporary debug log — compare bone bounds vs scene bounds
+  const boneBox = new THREE.Box3();
+  for (const p of worldBonePositions) boneBox.expandByPoint(p);
+  const boneSize = new THREE.Vector3();
+  const boneCenter = new THREE.Vector3();
+  boneBox.getSize(boneSize);
+  boneBox.getCenter(boneCenter);
+
   console.log('[WireframeBody] computeModelTransform:', {
-    boneCount: bonePositions.length,
+    boneCount: worldBonePositions.length,
     tallAxis,
     tallExtent: tallExtent.toFixed(3),
     headSign,
@@ -122,8 +118,27 @@ function computeModelTransform(
     rotation: rotation.map((r) => ((r * 180) / Math.PI).toFixed(1) + '°'),
     scale: scale.toFixed(4),
     position: position.map((p) => p.toFixed(3)),
-    center: [center.x.toFixed(3), center.y.toFixed(3), center.z.toFixed(3)],
-    size: [size.x.toFixed(3), size.y.toFixed(3), size.z.toFixed(3)],
+    sceneBounds: {
+      center: [center.x.toFixed(3), center.y.toFixed(3), center.z.toFixed(3)],
+      size: [size.x.toFixed(3), size.y.toFixed(3), size.z.toFixed(3)],
+    },
+    boneBoundsWorld: {
+      center: [
+        boneCenter.x.toFixed(3),
+        boneCenter.y.toFixed(3),
+        boneCenter.z.toFixed(3),
+      ],
+      size: [
+        boneSize.x.toFixed(3),
+        boneSize.y.toFixed(3),
+        boneSize.z.toFixed(3),
+      ],
+    },
+    sceneRootTransform: {
+      scale: [scene.scale.x, scene.scale.y, scene.scale.z],
+      position: [scene.position.x, scene.position.y, scene.position.z],
+      rotation: [scene.rotation.x, scene.rotation.y, scene.rotation.z],
+    },
   });
 
   return { rotation, scale, position };
