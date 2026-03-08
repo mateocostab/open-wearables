@@ -18,21 +18,21 @@ const PROVIDER_STYLES: Record<
     label: 'Google Fit',
   },
   withings: { bg: 'bg-cyan-500/20', text: 'text-cyan-400', label: 'Withings' },
-  apple: { bg: 'bg-zinc-400/20', text: 'text-zinc-300', label: 'Apple Health' },
+  apple: { bg: 'bg-zinc-400/20', text: 'text-zinc-300', label: 'Apple' },
   'auto-health-export': {
     bg: 'bg-zinc-400/20',
     text: 'text-zinc-300',
-    label: 'Apple Health',
+    label: 'Apple',
   },
   'health-auto-export': {
     bg: 'bg-zinc-400/20',
     text: 'text-zinc-300',
-    label: 'Apple Health',
+    label: 'Apple',
   },
   apple_health_auto_export: {
     bg: 'bg-zinc-400/20',
     text: 'text-zinc-300',
-    label: 'Apple Health',
+    label: 'Apple',
   },
 };
 
