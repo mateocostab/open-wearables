@@ -25,6 +25,7 @@ from app.schemas.summaries import (
     BodySummary,
     HeartRateStats,
     IntensityMinutes,
+    RecoverySummary,
     SleepStagesSummary,
     SleepSummary,
 )
@@ -37,9 +38,11 @@ from app.utils.pagination import (
 from app.utils.structured_logging import log_structured
 
 # Series types needed for sleep physiological metrics
-# TODO: Add HRV, respiratory rate, and SpO2 when ready
 SLEEP_PHYSIO_SERIES_TYPES = [
     SeriesType.heart_rate,
+    SeriesType.heart_rate_variability_sdnn,
+    SeriesType.respiratory_rate,
+    SeriesType.oxygen_saturation,
 ]
 
 # Activity summary constants
@@ -232,9 +235,11 @@ class SummariesService:
                     awake_minutes=result.get("awake_minutes"),
                 )
 
-            # Fetch average heart rate during the sleep period
-            # TODO: Add HRV, respiratory rate, and SpO2 when ready
+            # Fetch physiological metrics during the sleep period
             avg_hr: int | None = None
+            avg_hrv: float | None = None
+            avg_resp_rate: float | None = None
+            avg_spo2: float | None = None
 
             sleep_start = result.get("min_start_time")
             sleep_end = result.get("max_end_time")
@@ -249,11 +254,20 @@ class SummariesService:
                     )
                     hr_avg = physio_averages.get(SeriesType.heart_rate)
                     avg_hr = int(round(hr_avg)) if hr_avg is not None else None
+
+                    hrv_val = physio_averages.get(SeriesType.heart_rate_variability_sdnn)
+                    avg_hrv = round(hrv_val, 1) if hrv_val is not None else None
+
+                    resp_val = physio_averages.get(SeriesType.respiratory_rate)
+                    avg_resp_rate = round(resp_val, 1) if resp_val is not None else None
+
+                    spo2_val = physio_averages.get(SeriesType.oxygen_saturation)
+                    avg_spo2 = round(spo2_val, 1) if spo2_val is not None else None
                 except Exception as e:
                     log_structured(
                         self.logger,
                         "warning",
-                        f"Failed to fetch heart rate metrics for sleep: {e}",
+                        f"Failed to fetch physio metrics for sleep: {e}",
                         sleep_start=sleep_start,
                         sleep_end=sleep_end,
                     )
@@ -270,10 +284,9 @@ class SummariesService:
                 nap_count=result.get("nap_count"),
                 nap_duration_minutes=result.get("nap_duration_minutes"),
                 avg_heart_rate_bpm=avg_hr,
-                # TODO: Implement these when ready
-                avg_hrv_sdnn_ms=None,
-                avg_respiratory_rate=None,
-                avg_spo2_percent=None,
+                avg_hrv_sdnn_ms=avg_hrv,
+                avg_respiratory_rate=avg_resp_rate,
+                avg_spo2_percent=avg_spo2,
             )
             data.append(summary)
 
@@ -283,6 +296,80 @@ class SummariesService:
                 has_more=has_more,
                 next_cursor=next_cursor,
                 previous_cursor=previous_cursor,
+            ),
+            metadata=TimeseriesMetadata(
+                sample_count=len(data),
+                start_time=start_date,
+                end_time=end_date,
+            ),
+        )
+
+    @handle_exceptions
+    async def get_recovery_summaries(
+        self,
+        db_session: DbSession,
+        user_id: UUID,
+        start_date: datetime,
+        end_date: datetime,
+        cursor: str | None,
+        limit: int,
+    ) -> PaginatedResponse[RecoverySummary]:
+        """Get daily recovery summaries aggregated from time-series data.
+
+        Sources: Whoop recovery_score, resting_heart_rate, HRV RMSSD, SpO2, skin_temperature.
+        Also enriched with sleep duration/efficiency from event records.
+        """
+        self.logger.debug(f"Fetching recovery summaries for user {user_id} from {start_date} to {end_date}")
+
+        # Get recovery aggregates from time-series data
+        results = self.data_point_repo.get_daily_recovery_aggregates(
+            db_session, user_id, start_date, end_date
+        )
+
+        # Deduplicate by date using provider priority
+        results = self._filter_by_priority(db_session, user_id, results, date_key="recovery_date")
+
+        # Get sleep data to enrich recovery with duration/efficiency
+        sleep_results = self.event_record_repo.get_sleep_summaries(
+            db_session, user_id, start_date, end_date, None, limit + 100,
+        )
+        sleep_lookup: dict[date, dict] = {}
+        for sr in sleep_results:
+            sleep_lookup[sr["sleep_date"]] = sr
+
+        # Pagination (simple offset for now, consistent with activity)
+        has_more = len(results) > limit
+        if has_more:
+            results = results[:limit]
+
+        # Transform to schema
+        data = []
+        for result in results:
+            recovery_date = result["recovery_date"]
+            sleep_data = sleep_lookup.get(recovery_date, {})
+
+            # Sleep duration in seconds
+            sleep_duration_minutes = sleep_data.get("total_duration_minutes")
+            sleep_duration_seconds = int(sleep_duration_minutes * 60) if sleep_duration_minutes else None
+
+            summary = RecoverySummary(
+                date=recovery_date,
+                source=SourceMetadata(provider=result["source"] or "unknown", device=None),
+                sleep_duration_seconds=sleep_duration_seconds,
+                sleep_efficiency_percent=sleep_data.get("efficiency_percent"),
+                resting_heart_rate_bpm=result.get("resting_hr_avg"),
+                avg_hrv_sdnn_ms=result.get("hrv_rmssd_avg"),
+                avg_spo2_percent=result.get("spo2_avg"),
+                recovery_score=result.get("recovery_score"),
+            )
+            data.append(summary)
+
+        return PaginatedResponse(
+            data=data,
+            pagination=Pagination(
+                has_more=has_more,
+                next_cursor=None,
+                previous_cursor=None,
             ),
             metadata=TimeseriesMetadata(
                 sample_count=len(data),

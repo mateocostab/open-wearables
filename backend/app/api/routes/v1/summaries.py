@@ -1,7 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Query
 
 from app.database import DbSession
 from app.schemas.common_types import PaginatedResponse
@@ -76,8 +76,16 @@ async def get_recovery_summary(
     cursor: str | None = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
 ) -> PaginatedResponse[RecoverySummary]:
-    """Returns daily recovery metrics (Sleep + HRV + RHR)."""
-    raise HTTPException(status_code=501, detail="Not implemented")
+    """Returns daily recovery metrics aggregated from time-series data.
+
+    Sources: Whoop recovery score, resting HR, HRV RMSSD, SpO2, skin temperature.
+    Enriched with sleep duration and efficiency from sleep events.
+    """
+    start_datetime = parse_query_datetime(start_date)
+    end_datetime = parse_query_datetime(end_date)
+    return await summaries_service.get_recovery_summaries(
+        db, user_id, start_datetime, end_datetime, cursor, limit,
+    )
 
 
 @router.get("/users/{user_id}/summaries/body")

@@ -20,6 +20,9 @@ from app.schemas import (
     TimeSeriesSampleCreate,
     TimeSeriesSampleUpdate,
 )
+
+# Type alias for recovery aggregate results
+RecoveryAggregateResult = dict
 from app.schemas.series_types import SeriesType, get_series_type_from_id, get_series_type_id
 from app.utils.exceptions import handle_exceptions
 from app.utils.pagination import decode_cursor
@@ -918,3 +921,88 @@ class DataPointSeriesRepository(
 
         value, recorded_at, provider_name, device_id = result
         return (float(value), recorded_at, provider_name, device_id)
+
+    def get_daily_recovery_aggregates(
+        self,
+        db_session: DbSession,
+        user_id: UUID,
+        start_date: datetime,
+        end_date: datetime,
+    ) -> list[RecoveryAggregateResult]:
+        """Get daily recovery aggregates from time-series data.
+
+        Aggregates recovery_score, resting_heart_rate, HRV RMSSD, SpO2,
+        and skin_temperature by date for a user.
+
+        Returns list of dicts with keys:
+        - recovery_date, source
+        - recovery_score (latest), resting_hr_avg, hrv_rmssd_avg, spo2_avg, skin_temp_avg
+        """
+        recovery_id = get_series_type_id(SeriesType.recovery_score)
+        rhr_id = get_series_type_id(SeriesType.resting_heart_rate)
+        hrv_rmssd_id = get_series_type_id(SeriesType.heart_rate_variability_rmssd)
+        spo2_id = get_series_type_id(SeriesType.oxygen_saturation)
+        skin_temp_id = get_series_type_id(SeriesType.skin_temperature)
+
+        all_ids = [recovery_id, rhr_id, hrv_rmssd_id, spo2_id, skin_temp_id]
+
+        results = (
+            db_session.query(
+                cast(self.model.recorded_at, Date).label("recovery_date"),
+                DataSource.source.label("source"),
+                # Recovery score — use max (one reading per day, higher = better)
+                func.max(
+                    case((self.model.series_type_definition_id == recovery_id, self.model.value))
+                ).label("recovery_score"),
+                # Resting heart rate — average for the day
+                func.avg(
+                    case((self.model.series_type_definition_id == rhr_id, self.model.value))
+                ).label("resting_hr_avg"),
+                # HRV RMSSD — average for the day
+                func.avg(
+                    case((self.model.series_type_definition_id == hrv_rmssd_id, self.model.value))
+                ).label("hrv_rmssd_avg"),
+                # SpO2 — average for the day
+                func.avg(
+                    case((self.model.series_type_definition_id == spo2_id, self.model.value))
+                ).label("spo2_avg"),
+                # Skin temperature — average for the day
+                func.avg(
+                    case((self.model.series_type_definition_id == skin_temp_id, self.model.value))
+                ).label("skin_temp_avg"),
+            )
+            .join(DataSource, self.model.data_source_id == DataSource.id)
+            .filter(
+                DataSource.user_id == user_id,
+                self.model.recorded_at >= start_date,
+                cast(self.model.recorded_at, Date) < cast(end_date, Date),
+                self.model.series_type_definition_id.in_(all_ids),
+            )
+            .group_by(
+                cast(self.model.recorded_at, Date),
+                DataSource.source,
+            )
+            .order_by(asc(cast(self.model.recorded_at, Date)))
+            .all()
+        )
+
+        aggregates = []
+        for row in results:
+            aggregates.append(
+                {
+                    "recovery_date": row.recovery_date,
+                    "source": row.source,
+                    "recovery_score": int(row.recovery_score) if row.recovery_score is not None else None,
+                    "resting_hr_avg": int(round(float(row.resting_hr_avg)))
+                    if row.resting_hr_avg is not None
+                    else None,
+                    "hrv_rmssd_avg": round(float(row.hrv_rmssd_avg), 1)
+                    if row.hrv_rmssd_avg is not None
+                    else None,
+                    "spo2_avg": round(float(row.spo2_avg), 1) if row.spo2_avg is not None else None,
+                    "skin_temp_avg": round(float(row.skin_temp_avg), 2)
+                    if row.skin_temp_avg is not None
+                    else None,
+                }
+            )
+        return aggregates

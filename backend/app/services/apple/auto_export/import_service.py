@@ -1,10 +1,11 @@
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from logging import Logger, getLogger
 from typing import Iterable
 from uuid import UUID, uuid4
 
+from app.constants.series_types.apple.sleep_types import SleepPhase, get_apple_sleep_phase
 from app.database import DbSession
 from app.schemas import (
     AEWorkoutJSON,
@@ -24,6 +25,12 @@ from app.utils.exceptions import handle_exceptions
 from app.utils.structured_logging import log_structured
 
 APPLE_DT_FORMAT = "%Y-%m-%d %H:%M:%S %z"
+
+# Sleep metric name as sent by Health Auto Export
+AE_SLEEP_ANALYSIS_NAME = "sleep_analysis"
+
+# Max gap between consecutive sleep records to belong to the same session
+SLEEP_SESSION_GAP = timedelta(hours=2)
 
 # Mapping from Health Auto Export metric names to SeriesType.
 # Keys are the `name` field from the JSON payload (snake_case).
@@ -221,6 +228,150 @@ class ImportService:
 
         return samples
 
+    def _build_sleep_records(
+        self,
+        raw: dict,
+        user_id: str,
+    ) -> list[tuple[EventRecordCreate, EventRecordDetailCreate]]:
+        """Parse sleep_analysis metric from Health Auto Export and build sleep event records.
+
+        Health Auto Export sends sleep as a metric with name "sleep_analysis".
+        Each data point has: value (stage string), startDate, endDate, source.
+
+        We group consecutive stages into sessions (gap > 2h = new session),
+        then create an EventRecord + SleepDetails for each session.
+        """
+        root = RootJSON(**raw)
+        metrics_raw = root.data.get("metrics", [])
+        user_uuid = UUID(user_id)
+
+        # Find sleep_analysis metric
+        sleep_data_points = []
+        for m in metrics_raw:
+            metric = MetricJSON(**m)
+            if metric.name.lower().replace(" ", "_") == AE_SLEEP_ANALYSIS_NAME:
+                sleep_data_points = metric.data
+                break
+
+        if not sleep_data_points:
+            return []
+
+        # Parse and sort data points by start time
+        parsed_stages: list[tuple[datetime, datetime, SleepPhase, str | None]] = []
+        for dp in sleep_data_points:
+            if not dp.value or not dp.startDate or not dp.endDate:
+                continue
+
+            phase = get_apple_sleep_phase(dp.value)
+            if phase is None:
+                continue
+
+            try:
+                start = self._dt(dp.startDate)
+                end = self._dt(dp.endDate)
+            except (ValueError, TypeError):
+                continue
+
+            if end <= start:
+                continue
+
+            parsed_stages.append((start, end, phase, dp.source))
+
+        if not parsed_stages:
+            return []
+
+        # Sort by start time
+        parsed_stages.sort(key=lambda x: x[0])
+
+        # Group into sessions by time proximity
+        sessions: list[list[tuple[datetime, datetime, SleepPhase, str | None]]] = []
+        current_session: list[tuple[datetime, datetime, SleepPhase, str | None]] = [parsed_stages[0]]
+
+        for stage in parsed_stages[1:]:
+            prev_end = current_session[-1][1]
+            curr_start = stage[0]
+
+            if curr_start - prev_end > SLEEP_SESSION_GAP:
+                sessions.append(current_session)
+                current_session = [stage]
+            else:
+                current_session.append(stage)
+
+        sessions.append(current_session)
+
+        # Build EventRecord + SleepDetails per session
+        results = []
+        for session_stages in sessions:
+            session_start = min(s[0] for s in session_stages)
+            session_end = max(s[1] for s in session_stages)
+            total_duration = (session_end - session_start).total_seconds()
+
+            # Skip very short sessions (< 30 min) — likely noise
+            if total_duration < 1800:
+                continue
+
+            # Accumulate stage durations
+            in_bed_sec = 0.0
+            awake_sec = 0.0
+            light_sec = 0.0
+            deep_sec = 0.0
+            rem_sec = 0.0
+
+            source_name = None
+            for start, end, phase, source in session_stages:
+                dur = (end - start).total_seconds()
+                if source and not source_name:
+                    source_name = source
+
+                match phase:
+                    case SleepPhase.IN_BED:
+                        in_bed_sec += dur
+                    case SleepPhase.AWAKE:
+                        awake_sec += dur
+                    case SleepPhase.ASLEEP_LIGHT:
+                        light_sec += dur
+                    case SleepPhase.ASLEEP_DEEP:
+                        deep_sec += dur
+                    case SleepPhase.ASLEEP_REM:
+                        rem_sec += dur
+                    case SleepPhase.SLEEPING:
+                        # Unspecified sleep → count as light
+                        light_sec += dur
+
+            total_sleep_sec = light_sec + deep_sec + rem_sec
+            is_nap = total_duration < 5400  # < 1.5 hours = nap
+
+            sleep_id = uuid4()
+            record = EventRecordCreate(
+                id=sleep_id,
+                external_id=None,
+                user_id=user_uuid,
+                start_datetime=session_start,
+                end_datetime=session_end,
+                duration_seconds=int(total_duration),
+                category="sleep",
+                type="sleep_session",
+                source_name=source_name or "Auto Export",
+                source="apple_health_auto_export",
+                device_model=source_name,
+            )
+
+            detail = EventRecordDetailCreate(
+                record_id=sleep_id,
+                sleep_total_duration_minutes=int(total_sleep_sec // 60),
+                sleep_time_in_bed_minutes=int(in_bed_sec // 60) if in_bed_sec > 0 else int(total_duration // 60),
+                sleep_deep_minutes=int(deep_sec // 60),
+                sleep_rem_minutes=int(rem_sec // 60),
+                sleep_light_minutes=int(light_sec // 60),
+                sleep_awake_minutes=int(awake_sec // 60),
+                sleep_efficiency_score=None,
+                is_nap=is_nap,
+            )
+
+            results.append((record, detail))
+
+        return results
+
     def _build_import_bundles(
         self,
         raw: dict,
@@ -308,6 +459,15 @@ class ImportService:
             self.timeseries_service.bulk_create_samples(db_session, metric_samples)
             metrics_saved = len(metric_samples)
 
+        # Parse and insert sleep records from sleep_analysis metric
+        sleep_saved = 0
+        sleep_records = self._build_sleep_records(raw, user_id)
+        for sleep_record, sleep_detail in sleep_records:
+            created_record = self.event_record_service.create(db_session, sleep_record)
+            detail_for_record = sleep_detail.model_copy(update={"record_id": created_record.id})
+            self.event_record_service.create_detail(db_session, detail_for_record, detail_type="sleep")
+            sleep_saved += 1
+
         # Commit all changes in one transaction
         db_session.commit()
 
@@ -315,7 +475,7 @@ class ImportService:
             "workouts_saved": workouts_saved,
             "records_saved": records_saved,
             "metrics_saved": metrics_saved,
-            "sleep_saved": 0,
+            "sleep_saved": sleep_saved,
         }
 
     @handle_exceptions
@@ -368,6 +528,7 @@ class ImportService:
                 workouts_saved=saved_counts["workouts_saved"],
                 records_saved=saved_counts["records_saved"],
                 metrics_saved=saved_counts["metrics_saved"],
+                sleep_saved=saved_counts["sleep_saved"],
             )
 
         except Exception as e:
