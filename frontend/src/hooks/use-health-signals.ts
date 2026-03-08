@@ -6,6 +6,7 @@ import {
   useBodySummary,
 } from '@/hooks/api/use-health';
 import { useDateRange } from '@/hooks/use-date-range';
+import { SIGNAL_COLORS } from '@/lib/constants/signal-colors';
 
 export interface HealthSignal {
   label: string;
@@ -165,8 +166,8 @@ export function useHealthSignals(userId: string): HealthSignals {
         unit: 'hrs',
         avg14d: avgSleep !== null ? Math.round(avgSleep * 10) / 10 : null,
         momentum: computeMomentum(latestSleep, sleepDurations),
-        color: '#818CF8',
-        accentClass: 'text-indigo-400',
+        color: SIGNAL_COLORS.sleep.hex,
+        accentClass: SIGNAL_COLORS.sleep.tw,
         provider: sleepProvider,
       },
       sleepEfficiency: {
@@ -177,8 +178,8 @@ export function useHealthSignals(userId: string): HealthSignals {
         avg14d:
           avgEfficiency !== null ? Math.round(avgEfficiency) : null,
         momentum: computeMomentum(latestEfficiency, sleepEfficiencies),
-        color: '#34D399',
-        accentClass: 'text-emerald-400',
+        color: SIGNAL_COLORS.sleepEfficiency.hex,
+        accentClass: SIGNAL_COLORS.sleepEfficiency.tw,
         provider: sleepProvider,
       },
       activity: {
@@ -187,8 +188,8 @@ export function useHealthSignals(userId: string): HealthSignals {
         unit: 'kcal',
         avg14d: avgActivity !== null ? Math.round(avgActivity) : null,
         momentum: computeMomentum(latestActivity, activeCals),
-        color: '#00E5FF',
-        accentClass: 'text-cyan-400',
+        color: SIGNAL_COLORS.activity.hex,
+        accentClass: SIGNAL_COLORS.activity.tw,
         provider: activityProvider,
       },
       recovery: {
@@ -197,8 +198,8 @@ export function useHealthSignals(userId: string): HealthSignals {
         unit: '%',
         avg14d: avgRecovery !== null ? Math.round(avgRecovery) : null,
         momentum: computeMomentum(latestRecovery, recoveryScores),
-        color: '#FBBF24',
-        accentClass: 'text-amber-400',
+        color: SIGNAL_COLORS.recovery.hex,
+        accentClass: SIGNAL_COLORS.recovery.tw,
         provider: recoveryProvider,
       },
       steps: {
@@ -207,8 +208,8 @@ export function useHealthSignals(userId: string): HealthSignals {
         unit: '',
         avg14d: avgSteps !== null ? Math.round(avgSteps) : null,
         momentum: computeMomentum(latestSteps, stepValues),
-        color: '#10B981',
-        accentClass: 'text-emerald-400',
+        color: SIGNAL_COLORS.steps.hex,
+        accentClass: SIGNAL_COLORS.steps.tw,
         provider: activityProvider,
       },
       hrv: {
@@ -217,8 +218,8 @@ export function useHealthSignals(userId: string): HealthSignals {
         unit: 'ms',
         avg14d: avgHrv !== null ? Math.round(avgHrv) : null,
         momentum: computeMomentum(latestHrv, hrvValues),
-        color: '#FF33AA',
-        accentClass: 'text-pink-400',
+        color: SIGNAL_COLORS.hrv.hex,
+        accentClass: SIGNAL_COLORS.hrv.tw,
         provider: latestHrvFromSleep !== null ? sleepProvider : bodyProvider,
       },
       restingHr: {
@@ -229,8 +230,8 @@ export function useHealthSignals(userId: string): HealthSignals {
         avg14d:
           restingHrValue !== null ? Math.round(restingHrValue) : null,
         momentum: 50,
-        color: '#FB7185',
-        accentClass: 'text-rose-400',
+        color: SIGNAL_COLORS.restingHr.hex,
+        accentClass: SIGNAL_COLORS.restingHr.tw,
         provider: bodyProvider,
       },
       spo2: {
@@ -239,8 +240,8 @@ export function useHealthSignals(userId: string): HealthSignals {
         unit: '%',
         avg14d: avgSpo2 !== null ? Math.round(avgSpo2 * 10) / 10 : null,
         momentum: latestSpo2 !== null ? Math.min(100, Math.max(0, (latestSpo2 - 90) * 10)) : 0,
-        color: '#38BDF8',
-        accentClass: 'text-sky-400',
+        color: SIGNAL_COLORS.spo2.hex,
+        accentClass: SIGNAL_COLORS.spo2.tw,
         provider: spo2Provider,
       },
       respiratoryRate: {
@@ -249,32 +250,27 @@ export function useHealthSignals(userId: string): HealthSignals {
         unit: 'brpm',
         avg14d: avgResp !== null ? Math.round(avgResp * 10) / 10 : null,
         momentum: computeMomentum(latestResp, respValues),
-        color: '#A78BFA',
-        accentClass: 'text-violet-400',
+        color: SIGNAL_COLORS.respiratoryRate.hex,
+        accentClass: SIGNAL_COLORS.respiratoryRate.tw,
         provider: sleepProvider,
       },
       strain: (() => {
-        // Strain: derived from activity intensity (0-21 scale like Whoop)
-        // Compute from active calories + active minutes as a proxy
         const strainValues = activitySummaries.map((a) => {
           const cal = a.active_calories_kcal ?? 0;
           const mins = a.active_minutes ?? 0;
-          // Rough strain formula: scale cal+mins to 0-21 range
-          // ~500 cal + 60 min = ~14 strain (moderate day)
           return Math.min(21, (cal / 500) * 10 + (mins / 60) * 4);
         });
         const latestStrain = strainValues[0] ?? null;
         const avgStrain = computeAvg(strainValues.map((v) => (v > 0 ? v : null)));
-        const activityProvider = activitySummaries[0]?.source?.provider ?? null;
         return {
           label: 'Strain',
           value: latestStrain !== null && latestStrain > 0 ? Math.round(latestStrain * 10) / 10 : null,
           unit: '',
           avg14d: avgStrain !== null ? Math.round(avgStrain * 10) / 10 : null,
           momentum: computeMomentum(latestStrain, strainValues.map((v) => (v > 0 ? v : null))),
-          color: '#F59E0B',
-          accentClass: 'text-amber-400',
-          provider: activityProvider,
+          color: SIGNAL_COLORS.strain.hex,
+          accentClass: SIGNAL_COLORS.strain.tw,
+          provider: activitySummaries[0]?.source?.provider ?? null,
         };
       })(),
     };

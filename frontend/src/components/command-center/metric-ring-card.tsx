@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { NumberTicker } from '@/components/ui/number-ticker';
 import { SourceBadge } from '@/components/common/source-badge';
 
@@ -14,10 +15,9 @@ interface MetricRingCardProps {
 
 const ARC_RADIUS = 16;
 const ARC_CIRCUMFERENCE = 2 * Math.PI * ARC_RADIUS;
-// Show ~200 degree arc (about 55% of circle)
 const ARC_VISIBLE = ARC_CIRCUMFERENCE * 0.55;
 
-export function MetricRingCard({
+export const MetricRingCard = memo(function MetricRingCard({
   label,
   sublabel,
   value,
@@ -29,7 +29,6 @@ export function MetricRingCard({
 }: MetricRingCardProps) {
   const progress = value !== null ? Math.min(1, value / max) : 0;
   const arcFill = ARC_VISIBLE * progress;
-  const arcGap = ARC_VISIBLE - arcFill;
 
   return (
     <div
@@ -38,20 +37,26 @@ export function MetricRingCard({
     >
       {/* Top row: label + arc */}
       <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 min-w-0">
           <span
             className="inline-block w-2 h-2 rounded-full shrink-0"
             style={{ backgroundColor: color }}
+            aria-hidden="true"
           />
-          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider truncate">
             {label}
           </span>
           {provider && <SourceBadge provider={provider} />}
         </div>
 
         {/* Semi-circle arc */}
-        <svg viewBox="0 0 40 40" width={40} height={40} className="shrink-0 -mt-1">
-          {/* Background arc */}
+        <svg
+          viewBox="0 0 40 40"
+          width={40}
+          height={40}
+          className="shrink-0 -mt-1"
+          aria-hidden="true"
+        >
           <circle
             cx={20}
             cy={20}
@@ -63,7 +68,6 @@ export function MetricRingCard({
             strokeLinecap="round"
             transform="rotate(-190 20 20)"
           />
-          {/* Filled arc */}
           <circle
             cx={20}
             cy={20}
@@ -101,13 +105,13 @@ export function MetricRingCard({
         </div>
         {avg !== undefined && avg !== null && (
           <span className="text-xs text-zinc-500 tabular-nums">
-            avg {unit === 'hrs' ? avg.toFixed(1) : Math.round(avg)}
+            avg {unit === 'hrs' ? avg.toFixed(1) : Math.round(avg).toLocaleString()}
           </span>
         )}
       </div>
 
       {/* Progress line */}
-      <div className="mt-3 mb-2 h-[2px] rounded-full bg-zinc-800 overflow-hidden">
+      <div className="mt-3 mb-2 h-[2px] rounded-full bg-zinc-800 overflow-hidden" aria-hidden="true">
         <div
           className="h-full rounded-full transition-all duration-700"
           style={{
@@ -119,10 +123,10 @@ export function MetricRingCard({
 
       {/* Sublabel */}
       {sublabel && (
-        <p className="text-[9px] font-medium text-zinc-600 uppercase tracking-wider">
+        <p className="text-[9px] font-medium text-zinc-500 uppercase tracking-wider truncate" title={sublabel}>
           {sublabel}
         </p>
       )}
     </div>
   );
-}
+});

@@ -38,13 +38,21 @@ const PROVIDER_STYLES: Record<
 
 const DEFAULT_STYLE = { bg: 'bg-zinc-500/20', text: 'text-zinc-400' };
 
+function formatProviderLabel(raw: string): string {
+  // Convert snake_case/kebab-case to title case, cap at 12 chars
+  const cleaned = raw.replace(/[_-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  return cleaned.length > 12 ? cleaned.slice(0, 11) + '\u2026' : cleaned;
+}
+
 export function SourceBadge({ provider, className = '' }: SourceBadgeProps) {
   const style = PROVIDER_STYLES[provider] ?? DEFAULT_STYLE;
-  const label = PROVIDER_STYLES[provider]?.label ?? provider;
+  const label = PROVIDER_STYLES[provider]?.label ?? formatProviderLabel(provider);
 
   return (
     <span
-      className={`inline-flex items-center text-[10px] font-medium leading-none px-1.5 py-0.5 rounded ${style.bg} ${style.text} ${className}`}
+      className={`inline-flex items-center text-[10px] font-medium leading-none px-1.5 py-0.5 rounded max-w-[80px] truncate ${style.bg} ${style.text} ${className}`}
+      title={PROVIDER_STYLES[provider]?.label ?? provider}
+      aria-label={`Source: ${PROVIDER_STYLES[provider]?.label ?? provider}`}
     >
       {label}
     </span>

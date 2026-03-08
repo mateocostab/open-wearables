@@ -86,6 +86,18 @@
     --chart-4: 145 100% 50%; /* Green */
     --chart-5: 45 100% 55%; /* Yellow */
 
+    /* === SIGNAL COLORS - Health metric data viz === */
+    --signal-sleep: 234 89% 74%; /* #818CF8 - Indigo */
+    --signal-sleep-efficiency: 160 64% 52%; /* #34D399 - Emerald */
+    --signal-activity: 185 100% 50%; /* #00E5FF - Cyan */
+    --signal-recovery: 45 97% 56%; /* #FBBF24 - Amber */
+    --signal-steps: 160 84% 40%; /* #10B981 - Green */
+    --signal-hrv: 315 100% 60%; /* #FF33AA - Pink */
+    --signal-resting-hr: 351 95% 74%; /* #FB7185 - Rose */
+    --signal-spo2: 199 95% 60%; /* #38BDF8 - Sky */
+    --signal-respiratory: 263 85% 77%; /* #A78BFA - Violet */
+    --signal-strain: 38 92% 50%; /* #F59E0B - Amber */
+
     /* === BORDER RADIUS === */
     --radius: 0.75rem; /* 12px */
 
@@ -409,6 +421,21 @@
 
 .animate-pulse-dot {
   animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* ============================================
+   REDUCED MOTION
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* ============================================

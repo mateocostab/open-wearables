@@ -30,6 +30,7 @@ export function ProviderItem({
                 src={iconUrl}
                 alt={provider.name}
                 className="h-12 w-12 object-contain"
+                loading="lazy"
                 onError={() => {
                   setImageError(true);
                 }}

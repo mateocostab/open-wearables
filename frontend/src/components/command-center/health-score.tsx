@@ -1,27 +1,26 @@
 import { Sparkles, HeartPulse, Moon, Zap, ShieldCheck, type LucideIcon } from 'lucide-react';
 import { format } from 'date-fns';
-import { useHealthSignals } from '@/hooks/use-health-signals';
+import type { HealthSignals } from '@/hooks/use-health-signals';
 import { calculateHealthScore } from '@/lib/utils/health-score';
 import { NumberTicker } from '@/components/ui/number-ticker';
+import { SCORE_SEGMENT_COLORS, getScoreColor } from '@/lib/constants/signal-colors';
 
 interface HealthScoreProps {
-  userId: string;
+  signals: HealthSignals;
 }
 
 const SEGMENTS: readonly { key: string; label: string; icon: LucideIcon; color: string }[] = [
-  { key: 'sleep', label: 'Sleep', icon: Moon, color: '#818CF8' },
-  { key: 'activity', label: 'Activity', icon: Zap, color: '#FBBF24' },
-  { key: 'heart', label: 'Heart', icon: HeartPulse, color: '#FB7185' },
-  { key: 'recovery', label: 'Recovery', icon: ShieldCheck, color: '#38BDF8' },
+  { key: 'sleep', label: 'Sleep', icon: Moon, color: SCORE_SEGMENT_COLORS.sleep },
+  { key: 'activity', label: 'Activity', icon: Zap, color: SCORE_SEGMENT_COLORS.activity },
+  { key: 'heart', label: 'Heart', icon: HeartPulse, color: SCORE_SEGMENT_COLORS.heart },
+  { key: 'recovery', label: 'Recovery', icon: ShieldCheck, color: SCORE_SEGMENT_COLORS.recovery },
 ];
 
 const RADIUS = 70;
 const STROKE_WIDTH = 10;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
-export function HealthScore({ userId }: HealthScoreProps) {
-  const signals = useHealthSignals(userId);
-
+export function HealthScore({ signals }: HealthScoreProps) {
   const scores = calculateHealthScore({
     sleepDurationHours: signals.sleep.value,
     sleepEfficiency: signals.sleepEfficiency.value,
@@ -33,13 +32,7 @@ export function HealthScore({ userId }: HealthScoreProps) {
 
   const mainProgress = scores.composite / 100;
   const mainDashoffset = CIRCUMFERENCE * (1 - mainProgress);
-
-  const scoreColor =
-    scores.composite >= 70
-      ? '#00FF7F'
-      : scores.composite >= 40
-        ? '#FBBF24'
-        : '#EF4444';
+  const scoreColor = getScoreColor(scores.composite);
 
   return (
     <div
@@ -47,16 +40,19 @@ export function HealthScore({ userId }: HealthScoreProps) {
       style={{
         boxShadow: `0 0 30px ${scoreColor}10, inset 0 1px 0 rgba(255,255,255,0.03)`,
       }}
+      role="region"
+      aria-label="Health score"
     >
       {/* Header with pulse dot */}
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-cyan-400" />
-          <span className="text-sm font-semibold text-white">Health Score</span>
+          <Sparkles className="h-4 w-4 text-cyan-400" aria-hidden="true" />
+          <h2 className="text-sm font-semibold text-white">Health Score</h2>
           <span className="flex items-center gap-1.5 ml-2">
             <span
               className="h-1.5 w-1.5 rounded-full animate-pulse-dot"
               style={{ backgroundColor: scoreColor }}
+              aria-hidden="true"
             />
             <span className="text-[9px] font-medium uppercase tracking-wider text-zinc-500">
               Live
@@ -68,17 +64,20 @@ export function HealthScore({ userId }: HealthScoreProps) {
         </span>
       </div>
 
-      <div className="flex items-center gap-6">
-        {/* Donut with glow */}
-        <div className="relative shrink-0">
-          {/* Outer glow behind SVG */}
+      <div className="flex items-center gap-4 md:gap-6">
+        {/* Donut with glow — responsive: 120px on mobile, 160px on desktop */}
+        <div className="relative shrink-0 w-[120px] h-[120px] md:w-[160px] md:h-[160px]">
           <div
             className="absolute inset-0 rounded-full blur-xl opacity-30"
             style={{ background: `radial-gradient(circle, ${scoreColor}40 0%, transparent 70%)` }}
+            aria-hidden="true"
           />
 
-          <svg viewBox="0 0 160 160" width={160} height={160} className="relative">
-            {/* Glow filter */}
+          <svg
+            viewBox="0 0 160 160"
+            className="relative w-full h-full"
+            aria-hidden="true"
+          >
             <defs>
               <filter id="health-glow" x="-50%" y="-50%" width="200%" height="200%">
                 <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur" />
@@ -89,7 +88,6 @@ export function HealthScore({ userId }: HealthScoreProps) {
               </filter>
             </defs>
 
-            {/* Background ring */}
             <circle
               cx={80}
               cy={80}
@@ -99,7 +97,6 @@ export function HealthScore({ userId }: HealthScoreProps) {
               strokeWidth={STROKE_WIDTH}
             />
 
-            {/* Score arc with glow */}
             <circle
               cx={80}
               cy={80}
@@ -115,7 +112,6 @@ export function HealthScore({ userId }: HealthScoreProps) {
               filter="url(#health-glow)"
             />
 
-            {/* Bright end-cap dot on the arc tip */}
             {mainProgress > 0.02 && (
               <circle
                 cx={80 + RADIUS * Math.cos(-Math.PI / 2 + mainProgress * 2 * Math.PI)}
@@ -134,17 +130,17 @@ export function HealthScore({ userId }: HealthScoreProps) {
               <>
                 <NumberTicker
                   value={scores.composite}
-                  className="text-4xl font-bold text-white"
+                  className="text-3xl md:text-4xl font-bold text-white"
                 />
-                <span className="text-[10px] font-medium text-zinc-500 uppercase tracking-wider mt-0.5">
-                  Health Score
+                <span className="text-[9px] md:text-[10px] font-medium text-zinc-500 uppercase tracking-wider mt-0.5">
+                  Score
                 </span>
               </>
             ) : (
               <>
-                <span className="text-4xl font-bold text-zinc-600">-</span>
-                <span className="text-[10px] text-zinc-600 uppercase tracking-wider mt-0.5">
-                  Health Score
+                <span className="text-3xl md:text-4xl font-bold text-zinc-700" aria-label="No data">-</span>
+                <span className="text-[9px] md:text-[10px] text-zinc-500 uppercase tracking-wider mt-0.5">
+                  Score
                 </span>
               </>
             )}
@@ -158,7 +154,7 @@ export function HealthScore({ userId }: HealthScoreProps) {
             const Icon = segment.icon;
             return (
               <div key={segment.key} className="flex items-center gap-3">
-                <Icon className="h-4 w-4 shrink-0" style={{ color: segment.color }} />
+                <Icon className="h-4 w-4 shrink-0" style={{ color: segment.color }} aria-hidden="true" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs text-zinc-400">{segment.label}</span>
@@ -166,7 +162,14 @@ export function HealthScore({ userId }: HealthScoreProps) {
                       {subScore}
                     </span>
                   </div>
-                  <div className="h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+                  <div
+                    className="h-1.5 rounded-full bg-zinc-800 overflow-hidden"
+                    role="progressbar"
+                    aria-valuenow={subScore}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-label={`${segment.label} score`}
+                  >
                     <div
                       className="h-full rounded-full transition-all duration-700"
                       style={{

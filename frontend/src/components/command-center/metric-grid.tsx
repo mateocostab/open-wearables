@@ -1,22 +1,24 @@
-import { useHealthSignals } from '@/hooks/use-health-signals';
+import type { HealthSignals } from '@/hooks/use-health-signals';
 import { MetricRingCard } from './metric-ring-card';
 
 interface MetricGridProps {
-  userId: string;
+  signals: HealthSignals;
 }
 
-export function MetricGrid({ userId }: MetricGridProps) {
-  const signals = useHealthSignals(userId);
-
+export function MetricGrid({ signals }: MetricGridProps) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div
+      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+      role="list"
+      aria-label="Detailed health metrics"
+    >
       <MetricRingCard
         label="Sleep"
         sublabel={signals.sleep.value !== null ? 'avg per night' : undefined}
         value={signals.sleep.value}
         unit="hrs"
         max={10}
-        color="#818CF8"
+        color={signals.sleep.color}
         avg={signals.sleep.avg14d}
         provider={signals.sleep.provider}
       />
@@ -31,7 +33,7 @@ export function MetricGrid({ userId }: MetricGridProps) {
         value={signals.sleepEfficiency.value}
         unit="%"
         max={100}
-        color="#34D399"
+        color={signals.sleepEfficiency.color}
         avg={signals.sleepEfficiency.avg14d}
         provider={signals.sleepEfficiency.provider}
       />
@@ -46,7 +48,7 @@ export function MetricGrid({ userId }: MetricGridProps) {
         value={signals.activity.value}
         unit="kcal"
         max={1000}
-        color="#00E5FF"
+        color={signals.activity.color}
         avg={signals.activity.avg14d}
         provider={signals.activity.provider}
       />
@@ -61,7 +63,7 @@ export function MetricGrid({ userId }: MetricGridProps) {
         value={signals.steps.value}
         unit=""
         max={15000}
-        color="#10B981"
+        color={signals.steps.color}
         avg={signals.steps.avg14d}
         provider={signals.steps.provider}
       />
@@ -76,7 +78,7 @@ export function MetricGrid({ userId }: MetricGridProps) {
         value={signals.hrv.value}
         unit="ms"
         max={200}
-        color="#FF33AA"
+        color={signals.hrv.color}
         avg={signals.hrv.avg14d}
         provider={signals.hrv.provider}
       />
@@ -91,7 +93,7 @@ export function MetricGrid({ userId }: MetricGridProps) {
         value={signals.restingHr.value}
         unit="bpm"
         max={100}
-        color="#FB7185"
+        color={signals.restingHr.color}
         avg={signals.restingHr.avg14d}
         provider={signals.restingHr.provider}
       />
@@ -106,7 +108,7 @@ export function MetricGrid({ userId }: MetricGridProps) {
         value={signals.spo2.value}
         unit="%"
         max={100}
-        color="#38BDF8"
+        color={signals.spo2.color}
         avg={signals.spo2.avg14d}
         provider={signals.spo2.provider}
       />
@@ -121,7 +123,7 @@ export function MetricGrid({ userId }: MetricGridProps) {
         value={signals.respiratoryRate.value}
         unit="brpm"
         max={30}
-        color="#A78BFA"
+        color={signals.respiratoryRate.color}
         avg={signals.respiratoryRate.avg14d}
         provider={signals.respiratoryRate.provider}
       />

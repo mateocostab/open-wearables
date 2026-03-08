@@ -1,4 +1,4 @@
-import { ComponentPropsWithoutRef, useEffect, useRef } from 'react';
+import { ComponentPropsWithoutRef, useEffect, useMemo, useRef } from 'react';
 import { useInView, useMotionValue, useSpring } from 'motion/react';
 
 import { cn } from '@/lib/utils';
@@ -28,6 +28,15 @@ export function NumberTicker({
   });
   const isInView = useInView(ref, { once: true, margin: '0px' });
 
+  // Cache formatter — avoids creating 840+/sec instances across 14 tickers
+  const formatter = useMemo(
+    () => new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: decimalPlaces,
+      maximumFractionDigits: decimalPlaces,
+    }),
+    [decimalPlaces]
+  );
+
   useEffect(() => {
     if (isInView) {
       const timer = setTimeout(() => {
@@ -41,13 +50,12 @@ export function NumberTicker({
     () =>
       springValue.on('change', (latest) => {
         if (ref.current) {
-          ref.current.textContent = Intl.NumberFormat('en-US', {
-            minimumFractionDigits: decimalPlaces,
-            maximumFractionDigits: decimalPlaces,
-          }).format(Number(latest.toFixed(decimalPlaces)));
+          ref.current.textContent = formatter.format(
+            Number(latest.toFixed(decimalPlaces))
+          );
         }
       }),
-    [springValue, decimalPlaces]
+    [springValue, decimalPlaces, formatter]
   );
 
   return (

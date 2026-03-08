@@ -4,6 +4,8 @@ Please follow the guidelines and project structure defined in ./AGENTS.md
 
 For Cursor and other agents: Refer to .cursor/rules/ for detailed configuration.
 
+Always use Context7 MCP when I need library/API documentation, code generation, setup or configuration steps.
+
 ## Design Context
 
 ### Users
