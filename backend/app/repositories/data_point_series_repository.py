@@ -411,6 +411,11 @@ class DataPointSeriesRepository(
         Aggregates steps, energy, heart rate stats by date for a user.
         When data_source_id is provided, filters to only that device's data.
 
+        For cumulative metrics (steps, energy, distance, flights), deduplicates
+        across devices by taking the MAX value per minute bucket before summing.
+        This prevents double-counting when multiple devices (Apple Watch + iPhone)
+        report the same activity. Matches Apple Health's deduplication behavior.
+
         Returns list of dicts with keys:
         - activity_date, source, device_model
         - steps_sum, active_energy_sum, basal_energy_sum
@@ -425,65 +430,109 @@ class DataPointSeriesRepository(
         distance_id = get_series_type_id(SeriesType.distance_walking_running)
         flights_id = get_series_type_id(SeriesType.flights_climbed)
 
-        # Build aggregation query
-        # NOTE: Groups by (date, source) only — merges data across devices within
-        # the same source. This is critical for providers like Apple Health Auto Export
-        # where steps come from iPhone and energy/HR from Apple Watch.
-        results = (
+        cumulative_ids = [steps_id, energy_id, basal_energy_id, distance_id, flights_id]
+        all_ids = [*cumulative_ids, hr_id]
+
+        # ---- Subquery: deduplicate cumulative metrics per minute ----
+        # Multiple devices (Watch + iPhone) report the same steps/energy.
+        # For each minute bucket, take MAX value per series type across devices.
+        # Then SUM the minute-MAXes for the daily total.
+        minute_trunc = func.date_trunc(literal_column("'minute'"), self.model.recorded_at)
+
+        cumulative_base = (
             db_session.query(
                 cast(self.model.recorded_at, Date).label("activity_date"),
                 DataSource.source.label("source"),
-                # Steps - sum for the day
-                func.sum(case((self.model.series_type_definition_id == steps_id, self.model.value), else_=0)).label(
-                    "steps_sum"
-                ),
-                # Active energy - sum for the day
-                func.sum(case((self.model.series_type_definition_id == energy_id, self.model.value), else_=0)).label(
-                    "active_energy_sum"
-                ),
-                # Basal energy - sum for the day
-                func.sum(
-                    case((self.model.series_type_definition_id == basal_energy_id, self.model.value), else_=0)
-                ).label("basal_energy_sum"),
-                # Heart rate stats
-                func.avg(case((self.model.series_type_definition_id == hr_id, self.model.value), else_=None)).label(
-                    "hr_avg"
-                ),
-                func.max(case((self.model.series_type_definition_id == hr_id, self.model.value), else_=None)).label(
-                    "hr_max"
-                ),
-                func.min(case((self.model.series_type_definition_id == hr_id, self.model.value), else_=None)).label(
-                    "hr_min"
-                ),
-                # Distance - sum for the day (no else_=0 to return NULL when no data)
-                func.sum(case((self.model.series_type_definition_id == distance_id, self.model.value))).label(
-                    "distance_sum"
-                ),
-                # Flights climbed - sum for the day (no else_=0 to return NULL when no data)
-                func.sum(case((self.model.series_type_definition_id == flights_id, self.model.value))).label(
-                    "flights_climbed_sum"
-                ),
+                self.model.series_type_definition_id.label("type_id"),
+                minute_trunc.label("minute_bucket"),
+                func.max(self.model.value).label("max_value"),
             )
             .join(DataSource, self.model.data_source_id == DataSource.id)
             .filter(
                 DataSource.user_id == user_id,
                 self.model.recorded_at >= start_date,
                 cast(self.model.recorded_at, Date) < cast(end_date, Date),
-                self.model.series_type_definition_id.in_(
-                    [steps_id, energy_id, basal_energy_id, hr_id, distance_id, flights_id]
-                ),
+                self.model.series_type_definition_id.in_(cumulative_ids),
             )
         )
 
         if data_source_id:
-            results = results.filter(DataSource.id == data_source_id)
+            cumulative_base = cumulative_base.filter(DataSource.id == data_source_id)
 
-        results = (
-            results.group_by(
+        cumulative_minute = (
+            cumulative_base.group_by(
+                cast(self.model.recorded_at, Date),
+                DataSource.source,
+                self.model.series_type_definition_id,
+                minute_trunc,
+            )
+            .subquery()
+        )
+
+        # Sum the deduped minute-MAXes per day
+        cumulative_daily = (
+            db_session.query(
+                cumulative_minute.c.activity_date,
+                cumulative_minute.c.source,
+                func.sum(case((cumulative_minute.c.type_id == steps_id, cumulative_minute.c.max_value), else_=0)).label("steps_sum"),
+                func.sum(case((cumulative_minute.c.type_id == energy_id, cumulative_minute.c.max_value), else_=0)).label("active_energy_sum"),
+                func.sum(case((cumulative_minute.c.type_id == basal_energy_id, cumulative_minute.c.max_value), else_=0)).label("basal_energy_sum"),
+                func.sum(case((cumulative_minute.c.type_id == distance_id, cumulative_minute.c.max_value))).label("distance_sum"),
+                func.sum(case((cumulative_minute.c.type_id == flights_id, cumulative_minute.c.max_value))).label("flights_climbed_sum"),
+            )
+            .group_by(cumulative_minute.c.activity_date, cumulative_minute.c.source)
+            .subquery()
+        )
+
+        # ---- Heart rate: no dedup needed, AVG/MAX/MIN across all readings ----
+        hr_base = (
+            db_session.query(
+                cast(self.model.recorded_at, Date).label("activity_date"),
+                DataSource.source.label("source"),
+                func.avg(self.model.value).label("hr_avg"),
+                func.max(self.model.value).label("hr_max"),
+                func.min(self.model.value).label("hr_min"),
+            )
+            .join(DataSource, self.model.data_source_id == DataSource.id)
+            .filter(
+                DataSource.user_id == user_id,
+                self.model.recorded_at >= start_date,
+                cast(self.model.recorded_at, Date) < cast(end_date, Date),
+                self.model.series_type_definition_id == hr_id,
+            )
+        )
+
+        if data_source_id:
+            hr_base = hr_base.filter(DataSource.id == data_source_id)
+
+        hr_daily = (
+            hr_base.group_by(
                 cast(self.model.recorded_at, Date),
                 DataSource.source,
             )
-            .order_by(asc(cast(self.model.recorded_at, Date)))
+            .subquery()
+        )
+
+        # ---- Join cumulative + HR results ----
+        results = (
+            db_session.query(
+                func.coalesce(cumulative_daily.c.activity_date, hr_daily.c.activity_date).label("activity_date"),
+                func.coalesce(cumulative_daily.c.source, hr_daily.c.source).label("source"),
+                cumulative_daily.c.steps_sum,
+                cumulative_daily.c.active_energy_sum,
+                cumulative_daily.c.basal_energy_sum,
+                hr_daily.c.hr_avg,
+                hr_daily.c.hr_max,
+                hr_daily.c.hr_min,
+                cumulative_daily.c.distance_sum,
+                cumulative_daily.c.flights_climbed_sum,
+            )
+            .outerjoin(
+                hr_daily,
+                (cumulative_daily.c.activity_date == hr_daily.c.activity_date)
+                & (cumulative_daily.c.source == hr_daily.c.source),
+            )
+            .order_by(asc(func.coalesce(cumulative_daily.c.activity_date, hr_daily.c.activity_date)))
             .all()
         )
 
