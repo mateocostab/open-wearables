@@ -82,7 +82,7 @@ export function CommandCenterLayout({ userId }: CommandCenterLayoutProps) {
 
         {/* Right: Biometric Avatar */}
         {!isMobile && (
-          <div className="glass-panel p-4 relative overflow-hidden">
+          <div className="glass-panel p-4 relative overflow-hidden flex flex-col">
             <div className="flex items-center justify-between mb-2">
               <div>
                 <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
@@ -100,8 +100,8 @@ export function CommandCenterLayout({ userId }: CommandCenterLayoutProps) {
               </span>
             </div>
 
-            {/* Avatar container */}
-            <div className="relative h-[240px]">
+            {/* Avatar container - fills remaining card space */}
+            <div className="relative flex-1 min-h-[200px]">
               <Suspense fallback={<AvatarFallback />}>
                 <AvatarCanvas
                   restingHr={restingHr}

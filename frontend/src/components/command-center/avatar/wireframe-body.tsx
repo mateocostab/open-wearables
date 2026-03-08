@@ -1,24 +1,12 @@
 import { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { useGLTF } from '@react-three/drei';
+import { useGLTF, Center, Bounds } from '@react-three/drei';
 import * as THREE from 'three';
 
 const ROTATION_SPEED = 0.004;
 
-export function WireframeBody() {
-  const groupRef = useRef<THREE.Group>(null);
-  const glowRef = useRef<THREE.MeshBasicMaterial>(null);
+function WireframeMesh() {
   const { scene } = useGLTF('/models/human-body.glb');
-
-  useFrame(({ clock }) => {
-    if (groupRef.current) {
-      groupRef.current.rotation.y += ROTATION_SPEED;
-    }
-    if (glowRef.current) {
-      const t = clock.getElapsedTime();
-      glowRef.current.opacity = 0.04 + Math.sin(t * 1.5) * 0.03;
-    }
-  });
 
   const wireframeMaterial = useMemo(
     () =>
@@ -54,22 +42,35 @@ export function WireframeBody() {
     return { wireScene: wClone, glowScene: gClone };
   }, [scene, wireframeMaterial, glowMaterial]);
 
-  // Model bounding box (from analysis):
-  // Y: -1.47 to 2.21 (height ~3.68), X: -3.29 to 3.35 (width ~6.64)
-  // Z: -17.86 to -0.12 (depth ~17.74)
-  // Center: (0.03, 0.37, -8.99)
-  // The body faces +Z direction, feet near Z=0, head near Z=-18
+  return (
+    <group>
+      <primitive object={wireScene} />
+      <primitive object={glowScene} />
+    </group>
+  );
+}
+
+export function WireframeBody() {
+  const groupRef = useRef<THREE.Group>(null);
+
+  useFrame(() => {
+    if (groupRef.current) {
+      groupRef.current.rotation.y += ROTATION_SPEED;
+    }
+  });
 
   return (
     <group ref={groupRef}>
-      <primitive object={wireScene} />
-      <primitive object={glowScene} />
+      <Bounds fit clip observe margin={1.2}>
+        <Center>
+          <WireframeMesh />
+        </Center>
+      </Bounds>
 
-      {/* Base ring at feet - positioned at Y=-1.5, at the Z center of model */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.5, -9]}>
-        <ringGeometry args={[3.0, 3.2, 64]} />
+      {/* Base ring */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.6, 0]}>
+        <ringGeometry args={[0.8, 0.85, 64]} />
         <meshBasicMaterial
-          ref={glowRef}
           color="#00E5FF"
           transparent
           opacity={0.15}
