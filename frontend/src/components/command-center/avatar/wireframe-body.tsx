@@ -157,19 +157,20 @@ function ScanRing() {
     const t = clock.getElapsedTime();
     ringRef.current.position.y = Math.sin(t * 0.5) * HALF_HEIGHT * 0.9;
     if (matRef.current) {
-      matRef.current.opacity = 0.25 + Math.sin(t * 4) * 0.1;
+      matRef.current.opacity = 0.55 + Math.sin(t * 4) * 0.2;
     }
   });
 
   return (
     <group ref={ringRef}>
+      {/* Bright scan ring */}
       <mesh rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[0.85, 0.95, 48]} />
+        <ringGeometry args={[0.85, 0.98, 48]} />
         <meshBasicMaterial
           ref={matRef}
-          color={CYAN}
+          color="#33FFEE"
           transparent
-          opacity={0.25}
+          opacity={0.55}
           side={THREE.DoubleSide}
         />
       </mesh>
