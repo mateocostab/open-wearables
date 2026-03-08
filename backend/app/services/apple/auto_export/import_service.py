@@ -97,6 +97,28 @@ AE_METRIC_TO_SERIES_TYPE: dict[str, SeriesType] = {
 AE_BLOOD_PRESSURE_NAME = "blood_pressure"
 
 
+def _normalize_device_model(raw_source: str | None) -> str:
+    """Normalize device model to a single canonical name.
+
+    Health Auto Export sends pipe-separated device names like
+    "Mateo's Apple Watch|iPhone de Mateo|Mateo" when multiple devices
+    contributed to a reading. Using these raw names as device_model creates
+    separate data_source entries per combination, causing double/triple counting
+    when we SUM metrics like steps or calories.
+
+    Fix: take only the first device name (highest-priority device in Apple Health).
+    This maps all readings to the same data_source_id, and the DB UPSERT
+    deduplicates by (data_source_id, series_type, recorded_at).
+    """
+    if not raw_source:
+        return "Apple Watch"
+    # Take first device from pipe-separated list
+    first = raw_source.split("|")[0].strip()
+    # Replace non-breaking spaces (common in Apple device names)
+    first = first.replace("\xa0", " ")
+    return first or "Apple Watch"
+
+
 class ImportService:
     def __init__(self, log: Logger):
         self.log = log
@@ -147,7 +169,7 @@ class ImportService:
 
             for entry in entries:
                 value = entry.avg or entry.max or entry.min or 0
-                source_name = getattr(entry, "source", None) or "Auto Export"
+                source_name = _normalize_device_model(getattr(entry, "source", None))
                 samples.append(
                     HeartRateSampleCreate(
                         id=uuid4(),
@@ -193,7 +215,7 @@ class ImportService:
                                 id=uuid4(),
                                 user_id=user_uuid,
                                 source="apple_health_auto_export",
-                                device_model=dp.source or "Apple Watch",
+                                device_model=_normalize_device_model(dp.source),
                                 recorded_at=self._dt(dp.date),
                                 value=self._dec(dp.systolic) or 0,
                                 series_type=SeriesType.blood_pressure_systolic,
@@ -205,7 +227,7 @@ class ImportService:
                                 id=uuid4(),
                                 user_id=user_uuid,
                                 source="apple_health_auto_export",
-                                device_model=dp.source or "Apple Watch",
+                                device_model=_normalize_device_model(dp.source),
                                 recorded_at=self._dt(dp.date),
                                 value=self._dec(dp.diastolic) or 0,
                                 series_type=SeriesType.blood_pressure_diastolic,
@@ -230,7 +252,7 @@ class ImportService:
                         id=uuid4(),
                         user_id=user_uuid,
                         source="apple_health_auto_export",
-                        device_model=dp.source or "Apple Watch",
+                        device_model=_normalize_device_model(dp.source),
                         recorded_at=self._dt(dp.date),
                         value=self._dec(value) or 0,
                         series_type=series_type,
