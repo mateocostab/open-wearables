@@ -1,5 +1,4 @@
 import { lazy, Suspense, useState } from 'react';
-import { format } from 'date-fns';
 import { Sparkles, Command } from 'lucide-react';
 import { useHealthSignals } from '@/hooks/use-health-signals';
 import { useBodySummary } from '@/hooks/api/use-health';
@@ -130,10 +129,6 @@ export function CommandCenterLayout({ userId }: CommandCenterLayoutProps) {
                   {dateRange === 1 ? "Today's" : `Last ${dateRange} days`} key signals.
                 </p>
               </div>
-              <span className="text-[11px] text-zinc-500 px-2 py-1 rounded-md bg-zinc-800/50 border border-zinc-800">
-                <Sparkles className="h-3 w-3 inline mr-1 text-cyan-500" aria-hidden="true" />
-                {format(new Date(), 'yyyy-MM-dd')}
-              </span>
             </div>
             <SignalCards signals={signals} days={dateRange} />
           </section>
