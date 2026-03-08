@@ -9,11 +9,10 @@ const TARGET_HEIGHT = 3.5;
 function WireframeMesh() {
   const { scene } = useGLTF('/models/human-body.glb');
 
-  const wireframeMaterial = useMemo(
+  const lineMaterial = useMemo(
     () =>
-      new THREE.MeshBasicMaterial({
+      new THREE.LineBasicMaterial({
         color: '#C0F0F8',
-        wireframe: true,
         transparent: true,
         opacity: 0.55,
       }),
@@ -83,11 +82,16 @@ function WireframeMesh() {
     return geom;
   }, [scene]);
 
-  if (!posedGeometry) return null;
+  const edgesGeometry = useMemo(() => {
+    if (!posedGeometry) return null;
+    return new THREE.EdgesGeometry(posedGeometry, 20);
+  }, [posedGeometry]);
+
+  if (!posedGeometry || !edgesGeometry) return null;
 
   return (
     <group>
-      <mesh geometry={posedGeometry} material={wireframeMaterial} />
+      <lineSegments geometry={edgesGeometry} material={lineMaterial} />
       <mesh geometry={posedGeometry} material={glowMaterial} />
     </group>
   );
