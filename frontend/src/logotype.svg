@@ -1,3 +1,15 @@
-<svg width="180" height="40" viewBox="0 0 180 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <text x="0" y="30" font-family="Inter, system-ui, sans-serif" font-size="24" font-weight="600" fill="white" letter-spacing="-0.02em">Health</text>
+<svg width="200" height="36" viewBox="0 0 200 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Icon: hexagonal pulse -->
+  <g transform="translate(2, 2)">
+    <!-- Outer hex ring -->
+    <path d="M16 0L28.3 7v14L16 28 3.7 21V7z" stroke="#00E5FF" stroke-width="1.5" fill="none" opacity="0.6"/>
+    <!-- Inner pulse line -->
+    <polyline points="6,14 10,14 12,8 14,20 16,11 18,14 22,14" stroke="#00E5FF" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Center glow dot -->
+    <circle cx="16" cy="14" r="1.5" fill="#00E5FF" opacity="0.5"/>
+  </g>
+  <!-- "MATEO'S" small label -->
+  <text x="38" y="13" font-family="Inter, system-ui, sans-serif" font-size="8.5" font-weight="600" fill="#00E5FF" letter-spacing="0.18em" opacity="0.7">MATEO'S</text>
+  <!-- "HealthOS" main text -->
+  <text x="38" y="28" font-family="Inter, system-ui, sans-serif" font-size="17" font-weight="700" fill="white" letter-spacing="-0.02em">Health<tspan fill="#00E5FF">OS</tspan></text>
 </svg>

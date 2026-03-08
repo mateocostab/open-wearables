@@ -48,7 +48,7 @@ export function HealthOSSidebar({
       {/* Header */}
       <div className="p-4 border-b border-zinc-800/30">
         <div className="flex items-center gap-2 mb-1">
-          <img src={logotype} alt="HealthOS" className="h-5" />
+          <img src={logotype} alt="Mateo's HealthOS" className="h-9" />
         </div>
         <div className="flex items-center gap-1.5 mt-0.5">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
