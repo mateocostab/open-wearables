@@ -1,5 +1,6 @@
 import { motion } from 'motion/react';
 import { NumberTicker } from '@/components/ui/number-ticker';
+import { SourceBadge } from '@/components/common/source-badge';
 import type { HealthSignals } from '@/hooks/use-health-signals';
 
 interface SignalCardsProps {
@@ -24,11 +25,17 @@ const itemVariants = {
 };
 
 export function SignalCards({ signals }: SignalCardsProps) {
-  const cards = [signals.sleep, signals.activity, signals.hrv, signals.restingHr];
+  const cards = [
+    signals.sleep,
+    signals.activity,
+    signals.recovery,
+    signals.hrv,
+    signals.restingHr,
+  ];
 
   return (
     <motion.div
-      className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-zinc-800/50"
+      className="grid grid-cols-2 lg:grid-cols-5 divide-x divide-zinc-800/50"
       variants={containerVariants}
       initial="hidden"
       animate="visible"
@@ -39,9 +46,14 @@ export function SignalCards({ signals }: SignalCardsProps) {
           variants={itemVariants}
           className="px-4 py-2 first:pl-0 last:pr-0"
         >
-          <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5">
-            {signal.label}
-          </p>
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+              {signal.label}
+            </p>
+            {signal.provider && (
+              <SourceBadge provider={signal.provider} />
+            )}
+          </div>
 
           <div className="flex items-baseline gap-2">
             {signal.value !== null ? (

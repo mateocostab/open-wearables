@@ -101,12 +101,12 @@ export function CommandCenterLayout({ userId }: CommandCenterLayoutProps) {
             </div>
 
             {/* Avatar container */}
-            <div className="relative h-[340px]">
+            <div className="relative h-[380px]">
               <Suspense fallback={<AvatarFallback />}>
                 <AvatarCanvas
                   restingHr={restingHr}
                   hrv={signals.hrv.value}
-                  recoveryScore={null}
+                  recoveryScore={signals.recovery.value}
                   sleepHours={signals.sleep.value}
                   activeCalories={signals.activity.value}
                 />

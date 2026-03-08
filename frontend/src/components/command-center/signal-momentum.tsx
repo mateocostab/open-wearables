@@ -6,7 +6,7 @@ interface SignalMomentumProps {
 }
 
 export function SignalMomentum({ signals }: SignalMomentumProps) {
-  const bars = [signals.sleep, signals.activity, signals.hrv, signals.restingHr];
+  const bars = [signals.sleep, signals.activity, signals.recovery, signals.hrv, signals.restingHr];
 
   return (
     <div className="glass-panel p-4 space-y-3">

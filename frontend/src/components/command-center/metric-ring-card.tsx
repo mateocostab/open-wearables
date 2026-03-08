@@ -1,4 +1,5 @@
 import { NumberTicker } from '@/components/ui/number-ticker';
+import { SourceBadge } from '@/components/common/source-badge';
 
 interface MetricRingCardProps {
   label: string;
@@ -8,6 +9,7 @@ interface MetricRingCardProps {
   max: number;
   color: string;
   avg?: number | null;
+  provider?: string | null;
 }
 
 const ARC_RADIUS = 16;
@@ -23,6 +25,7 @@ export function MetricRingCard({
   max,
   color,
   avg,
+  provider,
 }: MetricRingCardProps) {
   const progress = value !== null ? Math.min(1, value / max) : 0;
   const arcFill = ARC_VISIBLE * progress;
@@ -43,6 +46,7 @@ export function MetricRingCard({
           <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
             {label}
           </span>
+          {provider && <SourceBadge provider={provider} />}
         </div>
 
         {/* Semi-circle arc */}

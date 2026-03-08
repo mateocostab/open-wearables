@@ -18,6 +18,7 @@ export function MetricGrid({ userId }: MetricGridProps) {
         max={10}
         color="#818CF8"
         avg={signals.sleep.avg14d}
+        provider={signals.sleep.provider}
       />
 
       <MetricRingCard
@@ -32,6 +33,7 @@ export function MetricGrid({ userId }: MetricGridProps) {
         max={100}
         color="#34D399"
         avg={signals.sleepEfficiency.avg14d}
+        provider={signals.sleepEfficiency.provider}
       />
 
       <MetricRingCard
@@ -46,6 +48,7 @@ export function MetricGrid({ userId }: MetricGridProps) {
         max={1000}
         color="#00E5FF"
         avg={signals.activity.avg14d}
+        provider={signals.activity.provider}
       />
 
       <MetricRingCard
@@ -60,6 +63,7 @@ export function MetricGrid({ userId }: MetricGridProps) {
         max={15000}
         color="#10B981"
         avg={signals.steps.avg14d}
+        provider={signals.steps.provider}
       />
 
       <MetricRingCard
@@ -74,6 +78,7 @@ export function MetricGrid({ userId }: MetricGridProps) {
         max={200}
         color="#FF33AA"
         avg={signals.hrv.avg14d}
+        provider={signals.hrv.provider}
       />
 
       <MetricRingCard
@@ -88,6 +93,37 @@ export function MetricGrid({ userId }: MetricGridProps) {
         max={100}
         color="#FB7185"
         avg={signals.restingHr.avg14d}
+        provider={signals.restingHr.provider}
+      />
+
+      <MetricRingCard
+        label="SpO2"
+        sublabel={
+          signals.spo2.avg14d !== null
+            ? `${signals.spo2.avg14d}% avg`
+            : undefined
+        }
+        value={signals.spo2.value}
+        unit="%"
+        max={100}
+        color="#38BDF8"
+        avg={signals.spo2.avg14d}
+        provider={signals.spo2.provider}
+      />
+
+      <MetricRingCard
+        label="Resp Rate"
+        sublabel={
+          signals.respiratoryRate.avg14d !== null
+            ? `${signals.respiratoryRate.avg14d} brpm avg`
+            : undefined
+        }
+        value={signals.respiratoryRate.value}
+        unit="brpm"
+        max={30}
+        color="#A78BFA"
+        avg={signals.respiratoryRate.avg14d}
+        provider={signals.respiratoryRate.provider}
       />
     </div>
   );

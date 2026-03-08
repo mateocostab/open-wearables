@@ -1,4 +1,4 @@
-import { Sparkles, HeartPulse, Moon, Zap, type LucideIcon } from 'lucide-react';
+import { Sparkles, HeartPulse, Moon, Zap, ShieldCheck, type LucideIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { useHealthSignals } from '@/hooks/use-health-signals';
 import { calculateHealthScore } from '@/lib/utils/health-score';
@@ -12,6 +12,7 @@ const SEGMENTS: readonly { key: string; label: string; icon: LucideIcon; color: 
   { key: 'sleep', label: 'Sleep', icon: Moon, color: '#818CF8' },
   { key: 'activity', label: 'Activity', icon: Zap, color: '#FBBF24' },
   { key: 'heart', label: 'Heart', icon: HeartPulse, color: '#FB7185' },
+  { key: 'recovery', label: 'Recovery', icon: ShieldCheck, color: '#38BDF8' },
 ];
 
 const RADIUS = 70;
@@ -27,6 +28,7 @@ export function HealthScore({ userId }: HealthScoreProps) {
     activeCalories: signals.activity.value,
     restingHr: signals.restingHr.value,
     hrv: signals.hrv.value,
+    recoveryScore: signals.recovery.value,
   });
 
   const mainProgress = scores.composite / 100;

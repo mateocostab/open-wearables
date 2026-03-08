@@ -3,6 +3,7 @@ export interface HealthScoreBreakdown {
   sleep: number;
   activity: number;
   heart: number;
+  recovery: number;
 }
 
 interface HealthScoreInput {
@@ -12,6 +13,7 @@ interface HealthScoreInput {
   targetCalories?: number;
   restingHr: number | null; // bpm
   hrv: number | null; // ms
+  recoveryScore: number | null; // 0-100
 }
 
 export function calculateHealthScore(
@@ -24,9 +26,10 @@ export function calculateHealthScore(
     targetCalories = 500,
     restingHr,
     hrv,
+    recoveryScore,
   } = input;
 
-  // Sleep sub-score (0-100) — weight: 40%
+  // Sleep sub-score (0-100) — weight: 30%
   const durationScore =
     sleepDurationHours !== null
       ? Math.min(1, sleepDurationHours / 8) * 100
@@ -37,15 +40,15 @@ export function calculateHealthScore(
       ? durationScore * 0.6 + efficiencyScore * 0.4
       : Math.max(durationScore, efficiencyScore);
 
-  // Activity sub-score (0-100) — weight: 30%
+  // Activity sub-score (0-100) — weight: 25%
   const activity =
     activeCalories !== null
       ? Math.min(100, (activeCalories / targetCalories) * 100)
       : 0;
 
-  // Heart sub-score (0-100) — weight: 30%
-  // RHR: lower is better (40-80 range → 100-0 score)
-  // HRV: higher is better (20-100 range → 0-100 score)
+  // Heart sub-score (0-100) — weight: 25%
+  // RHR: lower is better (40-80 range -> 100-0 score)
+  // HRV: higher is better (20-100 range -> 0-100 score)
   let heartScore = 0;
   let heartParts = 0;
   if (restingHr !== null) {
@@ -63,9 +66,13 @@ export function calculateHealthScore(
   }
   const heart = heartParts > 0 ? heartScore / heartParts : 0;
 
-  // Weighted composite
+  // Recovery sub-score (0-100) — weight: 20%
+  // Direct pass-through if available (Whoop provides 0-100)
+  const recovery = recoveryScore !== null ? Math.min(100, Math.max(0, recoveryScore)) : 0;
+
+  // Weighted composite: Sleep 30% + Activity 25% + Heart 25% + Recovery 20%
   const composite = Math.round(
-    sleep * 0.4 + activity * 0.3 + heart * 0.3
+    sleep * 0.3 + activity * 0.25 + heart * 0.25 + recovery * 0.2
   );
 
   return {
@@ -73,5 +80,6 @@ export function calculateHealthScore(
     sleep: Math.round(sleep),
     activity: Math.round(activity),
     heart: Math.round(heart),
+    recovery: Math.round(recovery),
   };
 }
