@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { WireframeBody } from './wireframe-body';
+import { DataMarkers } from './data-markers';
 
 interface AvatarCanvasProps {
   restingHr?: number | null;
@@ -11,7 +12,13 @@ interface AvatarCanvasProps {
   activeCalories?: number | null;
 }
 
-export function AvatarCanvas(_props: AvatarCanvasProps) {
+export function AvatarCanvas({
+  restingHr,
+  hrv,
+  recoveryScore,
+  sleepHours,
+  activeCalories,
+}: AvatarCanvasProps) {
   return (
     <div className="relative h-full w-full">
       <Canvas
@@ -25,6 +32,13 @@ export function AvatarCanvas(_props: AvatarCanvasProps) {
           <ambientLight intensity={0.6} />
           <pointLight position={[10, 10, 10]} intensity={0.3} />
           <WireframeBody />
+          <DataMarkers
+            restingHr={restingHr}
+            hrv={hrv}
+            recoveryScore={recoveryScore}
+            sleepHours={sleepHours}
+            activeCalories={activeCalories}
+          />
           <OrbitControls
             enableZoom={false}
             enablePan={false}

@@ -1,4 +1,7 @@
+import { useRef } from 'react';
+import { useFrame } from '@react-three/fiber';
 import { Html, Line } from '@react-three/drei';
+import * as THREE from 'three';
 import type { Vector3Tuple } from 'three';
 
 interface DataMarkersProps {
@@ -12,32 +15,61 @@ interface DataMarkersProps {
 interface MarkerConfig {
   label: string;
   value: string;
+  unit: string;
   color: string;
   bodyAnchor: Vector3Tuple;
   labelOffset: Vector3Tuple;
 }
 
+// Pulsing dot at the body anchor point
+function AnchorDot({ position, color }: { position: Vector3Tuple; color: string }) {
+  const ref = useRef<THREE.Mesh>(null);
+
+  useFrame(({ clock }) => {
+    if (!ref.current) return;
+    const t = clock.getElapsedTime();
+    const s = 0.04 + Math.sin(t * 3) * 0.015;
+    ref.current.scale.setScalar(s);
+  });
+
+  return (
+    <mesh ref={ref} position={position}>
+      <sphereGeometry args={[1, 8, 8]} />
+      <meshBasicMaterial color={color} transparent opacity={0.9} />
+    </mesh>
+  );
+}
+
 function MarkerLabel({
   label,
   value,
+  unit,
   color,
 }: {
   label: string;
   value: string;
+  unit: string;
   color: string;
 }) {
   return (
-    <div className="pointer-events-none select-none whitespace-nowrap rounded-lg bg-black/85 px-3 py-1.5 backdrop-blur-sm border border-white/10 shadow-lg">
-      <div className="flex items-center gap-1.5 mb-0.5">
+    <div className="pointer-events-none select-none whitespace-nowrap">
+      <div className="flex items-center gap-2">
         <span
-          className="inline-block h-2 w-2 rounded-full"
-          style={{ backgroundColor: color }}
+          className="inline-block h-1.5 w-1.5 rounded-full shadow-[0_0_6px_currentColor]"
+          style={{ backgroundColor: color, color }}
         />
-        <span className="text-[11px] font-semibold text-white/70 uppercase tracking-wider">
+        <span className="text-[9px] font-semibold uppercase tracking-[0.15em]" style={{ color: 'rgba(255,255,255,0.5)' }}>
           {label}
         </span>
       </div>
-      <span className="text-sm font-bold text-white">{value}</span>
+      <div className="mt-0.5 pl-3.5">
+        <span className="text-[15px] font-bold tabular-nums" style={{ color }}>
+          {value}
+        </span>
+        <span className="text-[9px] font-medium ml-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
+          {unit}
+        </span>
+      </div>
     </div>
   );
 }
@@ -50,60 +82,83 @@ export function DataMarkers({
 }: DataMarkersProps) {
   const markers: MarkerConfig[] = [];
 
-  if (restingHr != null || hrv != null) {
-    const parts: string[] = [];
-    if (restingHr != null) parts.push(`${restingHr} bpm`);
-    if (hrv != null) parts.push(`HRV ${hrv}ms`);
-
+  // Heart — left chest area
+  if (restingHr != null) {
     markers.push({
-      label: 'Heart',
-      value: parts.join(' · '),
+      label: 'Heart Rate',
+      value: `${restingHr}`,
+      unit: 'bpm',
       color: '#EF4444',
-      bodyAnchor: [-1.5, 0.5, -7],
-      labelOffset: [-4.5, 0.5, -7],
+      bodyAnchor: [-0.3, 0.4, 0],
+      labelOffset: [-2.2, 0.6, 0],
     });
   }
 
+  // HRV — right chest area
+  if (hrv != null) {
+    markers.push({
+      label: 'HRV',
+      value: `${hrv}`,
+      unit: 'ms',
+      color: '#A78BFA',
+      bodyAnchor: [0.3, 0.2, 0],
+      labelOffset: [2.2, 0.3, 0],
+    });
+  }
+
+  // Sleep — near head
   if (sleepHours != null) {
     markers.push({
       label: 'Sleep',
-      value: `${sleepHours.toFixed(1)}h`,
+      value: sleepHours.toFixed(1),
+      unit: 'hrs',
       color: '#818CF8',
-      bodyAnchor: [1.5, 1.5, -5],
-      labelOffset: [4.5, 1.5, -5],
+      bodyAnchor: [0.2, 1.4, 0],
+      labelOffset: [2.2, 1.5, 0],
     });
   }
 
+  // Activity — lower body / legs
   if (activeCalories != null) {
     markers.push({
-      label: 'Activity',
-      value: `${activeCalories} kcal`,
+      label: 'Active',
+      value: `${activeCalories}`,
+      unit: 'kcal',
       color: '#34D399',
-      bodyAnchor: [2.0, -0.5, -12],
-      labelOffset: [5.0, -0.5, -12],
+      bodyAnchor: [-0.4, -0.7, 0],
+      labelOffset: [-2.2, -0.6, 0],
     });
   }
+
+  if (markers.length === 0) return null;
 
   return (
     <group>
       {markers.map((marker) => (
         <group key={marker.label}>
+          {/* Pulsing dot on body */}
+          <AnchorDot position={marker.bodyAnchor} color={marker.color} />
+
+          {/* Connector line */}
           <Line
             points={[marker.bodyAnchor, marker.labelOffset]}
             color={marker.color}
-            lineWidth={1.5}
+            lineWidth={1}
             transparent
-            opacity={0.5}
+            opacity={0.3}
           />
+
+          {/* Floating label */}
           <Html
             position={marker.labelOffset}
-            distanceFactor={6}
+            distanceFactor={5}
             zIndexRange={[10, 0]}
             center
           >
             <MarkerLabel
               label={marker.label}
               value={marker.value}
+              unit={marker.unit}
               color={marker.color}
             />
           </Html>
